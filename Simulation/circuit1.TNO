@@ -1,0 +1,214 @@
+********************************************************************************
+***                            Micro-Cap 9.0.7.0                             ***
+***                                  Kreyl                                   ***
+***                                 Ostranna                                 ***
+***                      Transient Analysis of circuit1                      ***
+********************************************************************************
+Limits
+======
+Time Range           160m
+Maximum Time Step    0
+Number of Points     1000
+Temperature          Linear 27
+Run Options          Normal
+State Variables      Zero
+Operating Point      On
+Operating Point Only Off
+
+
+*****************************************************
+***                Temperature=27                 ***
+*****************************************************
+
+Temperature=27 
+
+Model parameters for devices of type Bipolar Junction Transistors NPN
+=====================================================================
+Instance:              Q1              Q2   
+Using model:    MMBT2222A       MMBT2222A   
+LEVEL                   1(*)            1(*)
+AF                 1.000 (*)       1.000 (*)
+BF               256.700         256.700    
+BR                 6.590           6.590    
+CJC               10.110p         10.110p   
+CJE               25.890p         25.890p   
+CJS                0.000           0.000    
+EG                 1.110           1.110    
+FC               938.800m        938.800m   
+IKF              489.900m        489.900m   
+IKR              192.900m        192.900m   
+IRB                1.000m          1.000m   
+IS                29.130f         29.130f   
+ISC              320.300p        320.300p   
+ISE                9.652f          9.652f   
+ISS                0.000 (*)       0.000 (*)
+ITF                4.797           4.797    
+KF                 0.000 (*)       0.000 (*)
+MJC              416.000m        416.000m   
+MJE              366.800m        366.800m   
+MJS              333.000m        333.000m   
+NC                 1.608           1.608    
+NE                 1.516           1.516    
+NF               992.600m        992.600m   
+NK               500.000m(*)     500.000m(*)
+NR               984.400m        984.400m   
+NS                 1.000 (*)       1.000 (*)
+PTF                0.000           0.000    
+RB                 1.000           1.000    
+RBM                1.000           1.000    
+RC               224.800m        224.800m   
+RE               193.400m        193.400m   
+T_ABS           UNDEFINED(*)    UNDEFINED(*)
+T_MEASURED      UNDEFINED(*)    UNDEFINED(*)
+T_REL_GLOBAL    UNDEFINED(*)    UNDEFINED(*)
+T_REL_LOCAL     UNDEFINED(*)    UNDEFINED(*)
+TF               293.900p        293.900p   
+TR               320.000n        320.000n   
+TRB1               0.000 (*)       0.000 (*)
+TRB2               0.000 (*)       0.000 (*)
+TRC1               0.000 (*)       0.000 (*)
+TRC2               0.000 (*)       0.000 (*)
+TRE1               0.000 (*)       0.000 (*)
+TRE2               0.000 (*)       0.000 (*)
+TRM1               0.000 (*)       0.000 (*)
+TRM2               0.000 (*)       0.000 (*)
+VAF               80.990          80.990    
+VAR              101.200         101.200    
+VJC              662.200m        662.200m   
+VJE              689.100m        689.100m   
+VJS              750.000m        750.000m   
+VTF               20.000          20.000    
+XCJC             594.600m        594.600m   
+XTB                0.000           0.000    
+XTF               71.780          71.780    
+XTI                3.000           3.000    
+(*) Default Parameter
+
+
+
+Model parameters for devices of type Pulse
+==========================================
+Instance:              V1   
+Using model:       SQUARE   
+P1                 0.000    
+P2                 5.000m   
+P3                10.000m   
+P4                15.000m   
+P5                40.000m   
+VONE              12.000    
+VZERO            500.000m   
+
+
+
+DC Operating Point Voltages
+===========================
+Node         Voltage  Node         Voltage  Node         Voltage 
+1          -500.000m  2          -482.456m  AFTERL     -482.456m 
+4          -438.596m  5             1.982   3V3           3.300  
+7           664.238m  AFTERT      141.019m  9            62.171m 
+
+DC Operating Point Inductor Current
+===================================
+Inductor     Current 
+L1          -43.860u 
+
+
+Operating point for devices of type Bipolar Junction Transistors NPN
+====================================================================
+Instance:                 Q1              Q2
+Using model:       MMBT2222A       MMBT2222A
+IB                 -320.683p         98.576u
+IC                  322.659p        315.898u
+VBE                -500.767m        602.067m
+VBC                  -2.421         523.219m
+VCE                   1.920          78.848m
+BETADC               -1.006           3.205 
+GM                  -42.678f         16.042m
+RPI                 256.654T         14.635K
+RX                    1.000           1.000 
+RO                  944.694G          1.047K
+CPI                  21.190p         60.255p
+CMU                   3.170p        319.064p
+CBX                   2.162p          7.849p
+CJS                   0.000           0.000 
+BETAAC              -10.953         234.766 
+FT                 -256.110u        6.594MEG
+
+DC Power Terms:
+PD                  780.075p         84.257u
+PS                    0.000           0.000 
+
+DC Pin Currents:
+Ib                 -320.683p         98.576u
+Ic                  322.659p        315.898u
+Ie                   -1.975p       -414.474u
+Is                    0.000           0.000 
+
+Condition:
+State                    OFF             SAT
+
+
+
+Operating point for devices of type Resistor
+============================================
+Instance:                  R1              R2              R3              R4
+DC Power Terms:
+PD                   769.477n         19.237u          1.924u        173.681u
+
+DC Pin Currents:
+Ir                   -43.860u         43.860u        -43.860u       -131.788u
+
+
+Instance:                  R5              R6              R7              R8
+DC Power Terms:
+PD                   173.681u        997.916u         22.061u         25.768u
+
+DC Pin Currents:
+Ir                   131.788u       -315.898u        -33.212u       -414.474u
+
+
+
+Operating point for devices of type Inductor
+============================================
+Instance:                  L1
+DC Power Terms:
+PS                -2.435E-021
+
+DC Pin Currents:
+Il                   -43.860u
+
+
+
+Operating point for devices of type Capacitor
+=============================================
+Instance:                  C1              C2              C3
+DC Power Terms:
+PS                     0.000           0.000           0.000 
+
+DC Pin Currents:
+Ic                     0.000           0.000           0.000 
+
+
+
+Operating point for devices of type Pulse
+=========================================
+Instance:                  V1
+Using model:           SQUARE
+DC Power Terms:
+PG                    21.930u
+
+DC Pin Currents:
+ISource              -43.860u
+
+
+
+Operating point for devices of type SPICE Source
+================================================
+Instance:                 V2
+DC Power Terms:
+PG                    1.477m
+
+DC Pin Currents:
+ISource            -447.686u
+
+
