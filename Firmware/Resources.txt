@@ -1,0 +1,10 @@
+==== Peripherals ====
+Debug uart: UART1; PB6, PB7
+USB
+Battery measure: ADC1 ch8 (PB0)
+
+==== DMA ====
+Debug UART RX: DMA  STREAM  CH   
+Debug UART TX: DMA  STREAM  CH 
+
+ADC1:          DMA2 STREAM0 CH0

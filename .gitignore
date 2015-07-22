@@ -3,3 +3,6 @@ Simulation/circuit1.bak_cir
 pcb/Telegraph.kicad_pcb-bak
 pcb/Telegraph.ses
 pcb/zones_dump.txt
+Firmware/.settings/language.settings.xml
+Firmware/.settings/org.eclipse.cdt.codan.core.prefs
+Firmware/Debug/
