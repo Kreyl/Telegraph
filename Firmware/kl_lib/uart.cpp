@@ -66,7 +66,7 @@ void Uart_t::ISendViaDMA() {
 
 #if 1 // ==== Print Now ====
 static inline void FPutCharNow(char c) {
-#if defined STM32L1XX_MD
+#if defined STM32L1XX_MD || defined STM32F2XX
     while(!(UART->SR & USART_SR_TXE));
     UART_TX_REG = c;
     while(!(UART->SR & USART_SR_TXE));
@@ -92,7 +92,11 @@ void Uart_t::IRxTask() {
     while(true) {
         chThdSleepMilliseconds(UART_RX_POLLING_MS);
         // Get number of bytes to process
+#ifdef STM32F2XX
+        int32_t Sz = UART_RXBUF_SZ - UART_DMA_RX->stream->NDTR;   // Number of bytes copied to buffer since restart
+#else
         int32_t Sz = UART_RXBUF_SZ - UART_DMA_RX->channel->CNDTR;   // Number of bytes copied to buffer since restart
+#endif
         if(Sz != SzOld) {
             int32_t ByteCnt = Sz - SzOld;
             if(ByteCnt < 0) ByteCnt += UART_RXBUF_SZ;   // Handle buffer circulation

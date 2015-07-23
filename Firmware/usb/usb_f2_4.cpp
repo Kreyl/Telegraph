@@ -5,11 +5,16 @@
  *      Author: kreyl
  */
 
-#include "usb_f2.h"
+#include "usb_f2_4.h"
 #include "evt_mask.h"
 #include "uart.h"
 
-#define TRDT        0xF  // AHB clock = 24, => TRDT = 4 * (24/48) +1
+union DWordBytes_t {
+    uint8_t b[4];
+    uint32_t DWord;
+};
+
+#define TRDT        5  // AHB clock = 48, => TRDT = 4 * (48/48) +1
 
 // Ep0 size bits
 #if (EP0_SZ == 8)
@@ -18,16 +23,18 @@
 #define EP0_SZ_BITS ((uint32_t)0b00)
 #endif
 
-#define EP0_VERBOSE
+//#define EP0_VERBOSE
 
 #ifdef EP0_VERBOSE
-#define EP0_PRINT(S)                Uart.Printf(S)
-#define EP0_PRINT_V1(S, a1)         Uart.Printf(S, a1)
-#define EP0_PRINT_V1V2(S, a1, a2)   Uart.Printf(S, a1, a2)
+#define EP0_PRINT(S)                Uart.PrintfI(S)
+#define EP0_PRINT_V1(S, a1)         Uart.PrintfI(S, a1)
+#define EP0_PRINT_V1V2(S, a1, a2)   Uart.PrintfI(S, a1, a2)
+#define EP0_PRINT_V1V2V3(S, a1, a2, a3)   Uart.PrintfI(S, a1, a2, a3)
 #else
 #define EP0_PRINT(S)
 #define EP0_PRINT_V1(S, a1)
 #define EP0_PRINT_V1V2(S, a1, a2)
+#define EP0_PRINT_V1V2V3(S, a1, a2, a3)
 #endif
 
 Usb_t Usb;
@@ -40,10 +47,9 @@ void Usb_t::Init() {
     // GPIO
     PinSetupAlterFunc(GPIOA, 11, omOpenDrain, pudNone, AF10);
     PinSetupAlterFunc(GPIOA, 12, omOpenDrain, pudNone, AF10);
-    PinSetupIn(GPIOA, 9, pudPullDown);
     // Init Eps' indxs
-    PEpBulkOut = &Ep[1];    // Out endpoint
-    PEpBulkIn  = &Ep[2];    // In endpoint
+    PEpBulkOut = &Ep[EP_BULK_OUT_INDX]; // Out endpoint
+    PEpBulkIn  = &Ep[EP_BULK_IN_INDX];  // In endpoint
     for(uint8_t i=0; i<EP_CNT; i++) Ep[i].Indx = i;
 
     // OTG FS clock enable and reset
@@ -58,8 +64,8 @@ void Usb_t::Init() {
     OTG_FS->GUSBCFG = GUSBCFG_FDMOD | GUSBCFG_TRDT(TRDT) | GUSBCFG_PHYSEL | 0;
     chThdSleepMilliseconds(27);
     OTG_FS->DCFG = 0x02200000 | DCFG_DSPD_FS11; // Full-speed (other options are not available, though)
-    OTG_FS->PCGCCTL = 0;    // Nothing is stopped or gated
-    OTG_FS->GCCFG = GCCFG_PWRDWN /*| GCCFG_NOVBUSSENS*/;    // Power on
+    OTG_FS->PCGCCTL = 0;            // Nothing is stopped or gated
+    OTG_FS->GCCFG = GCCFG_PWRDWN;   // Power on
     chThdSleepMilliseconds(20);
 
     // Core reset and delay of at least 3 PHY cycles
@@ -83,16 +89,19 @@ void Usb_t::Init() {
 }
 
 void Usb_t::Shutdown() {
+    Disconnect();
     chSysLock();
     OTG_FS->PCGCCTL |= PCGCCTL_STPPCLK | PCGCCTL_GATEHCLK; // Stop PHY clock, gate HCLK
     rccDisableOTG_FS(FALSE);
     nvicDisableVector(STM32_OTG1_NUMBER);
     IsReady = false;
     chSysUnlock();
+    IReset();
+    IEndpointsDisable();
 }
 
-void Usb_t::IDeviceReset() {
-//    Uart.Printf("Rst\r");
+void Usb_t::IReset() {
+//    Uart.PrintfI("\rRst");
     IsReady = false;
     TxFifoFlush(); // TX FIFO flush
     // Force all EPs in NAK mode and clear irqs
@@ -224,21 +233,27 @@ void Usb_t::IEndpointsInit() {
 
 #if 1 // =========================== High level ================================
 void Usb_t::SetupPktHandler() {
-//    EP0_PRINT("Setup\r");
-//    Uart.Printf("%A\r", Ep0OutBuf, 8, ' ');
+//    Uart.PrintfI("\rSetup %A", Ep0OutBuf, 8, ' ');
     // Try to handle request
     uint8_t *FPtr;
     uint32_t FLength;
     Ep[0].State = DefaultReqHandler(&FPtr, &FLength);
     // If standard request handler failed, try handle it in application
-    if(Ep[0].State == esError) Ep[0].State = NonStandardControlRequestHandler(&FPtr, &FLength);
-    // Prepare to next transaction
+    if(Ep[0].State == esError) {
+        if(Events.OnCtrlPkt != nullptr) Ep[0].State = Events.OnCtrlPkt(&FPtr, &FLength);
+    }    // Prepare to next transaction
     switch(Ep[0].State) {
         case esInData:
             Ep[0].PtrIn = FPtr;
             Ep[0].LengthIn = FLength;
-            Ep[0].PrepareInTransaction();   // Just prepare; may not fill fifo here
+            Ep[0].PrepareInTransaction(FLength);   // Just prepare; may not fill fifo here
             Ep[0].StartInTransaction();
+            break;
+        case esOutData:
+            Ep[0].PtrOut = FPtr;
+            Ep[0].LengthOut = FLength;
+            Ep[0].PrepareOutTransaction(FLength);
+            Ep[0].StartOutTransaction();
             break;
         case esOutStatus:
             Ep[0].TransmitZeroPkt();
@@ -255,59 +270,64 @@ EpState_t Usb_t::DefaultReqHandler(uint8_t **PPtr, uint32_t *PLen) {
     uint32_t Addr;
     uint8_t EpID;
     if(Recipient == USB_REQTYPE_RECIPIENT_DEVICE) {
-        //Uart.Printf("Dev\r\n");
+//        Uart.Printf("\rDev");
         switch(SetupReq.bRequest) {
             case USB_REQ_GET_STATUS:        // Just return the current status word
-//                EP0_PRINT("GetStatus\r");
+                EP0_PRINT("\rGetStatus");
                 *PPtr = (uint8_t*)cZero;    // Remote wakeup = 0, selfpowered = 0
                 *PLen = 2;
                 return esInData;
                 break;
             case USB_REQ_SET_ADDRESS:
                 Addr = IGetSetupAddr();
-//                EP0_PRINT_V1("SetAddr %u\r", Addr);
+                EP0_PRINT_V1("\rSetAddr %u", Addr);
                 *PLen = 0;
                 ISetAddress(Addr);
                 return esOutStatus;
                 break;
             case USB_REQ_GET_DESCRIPTOR:
-//                EP0_PRINT_V1V2("GetDesc t=%u i=%u\r", SetupReq.Type, SetupReq.Indx);
+                EP0_PRINT_V1V2V3("\rGetDesc t=%u i=%u Sz=%u", SetupReq.Type, SetupReq.Indx, SetupReq.wLength);
                 GetDescriptor(SetupReq.Type, SetupReq.Indx, PPtr, PLen);
                 // Trim descriptor if needed, as host can request part of descriptor.
                 TRIM_VALUE(*PLen, SetupReq.wLength);
-                if(*PLen != 0) return esInData;
+                if(*PLen != 0) {
+                    EP0_PRINT_V1("\rLen: %u", *PLen);
+                    EP0_PRINT_V1V2V3("\rDsc: %A", *PPtr, *PLen, ' ');
+                    return esInData;
+                }
                 break;
             case USB_REQ_GET_CONFIGURATION:
-//                EP0_PRINT("GetCnf\r");
+                EP0_PRINT("\rGetCnf");
                 *PPtr = &Configuration;
                 *PLen = 1;
                 return esInData;
                 break;
             case USB_REQ_SET_CONFIGURATION:
-//                EP0_PRINT_V1("SetCnf %u\r", SetupReq.wValue);
+                EP0_PRINT_V1("\rSetCnf %u", SetupReq.wValue);
                 Configuration = (uint8_t)(SetupReq.wValue & 0xFF);
                 *PLen = 0;
-//                Uart.Printf("*******UsbConfigured\r");
                 IEndpointsInit();
                 IsReady = true;
-                if(PThread != nullptr) {
-                    chSysLockFromIsr();
-                    chEvtSignalI(PThread, EVTMSK_USB_READY);
-                    chSysUnlockFromIsr();
-                }
+                if(Events.OnReady != nullptr) Events.OnReady();
                 return esOutStatus;
                 break;
             default: break;
         } // switch
     }
-//    else if(Recipient == USB_REQTYPE_RECIPIENT_INTERFACE) {
-//        if(SetupReq.bRequest == USB_REQ_SET_INTERFACE) {
-//            //EP0_PRINT("InterfaceSet\r");
-//            return esOutStatus;
-//        }
-//    }
+    else if(Recipient == USB_REQTYPE_RECIPIENT_INTERFACE) {
+        if(SetupReq.bRequest == USB_REQ_SET_INTERFACE) {
+            if(SetupReq.wIndex > 1 or SetupReq.wValue != 0) return esError;
+            return esOutStatus;
+        }
+        else if(SetupReq.bRequest == USB_REQ_GET_INTERFACE) {
+            if(SetupReq.wIndex > 1) return esError;
+            *PPtr = (uint8_t*)cZero;
+            *PLen = 1;
+            return esInData;
+        }
+    }
     else if(Recipient == USB_REQTYPE_RECIPIENT_ENDPOINT) {
-//        EP0_PRINT("Ep\r");
+        EP0_PRINT("\rEp");
         switch(SetupReq.bRequest) {
             case USB_REQ_SYNCH_FRAME:
                 *PPtr = (uint8_t*)cZero;
@@ -348,11 +368,6 @@ EpState_t Usb_t::DefaultReqHandler(uint8_t **PPtr, uint32_t *PLen) {
     } // if Ep
     return esError;
 }
-
-__attribute__((weak))
-EpState_t Usb_t::NonStandardControlRequestHandler(uint8_t **PPtr, uint32_t *PLen) {
-    return esError;
-}
 #endif
 
 #if 1 // =============================== IRQ ===================================
@@ -369,10 +384,10 @@ void Usb_t::IIrqHandler() {
     // Get irq flag
     irqs = OTG_FS->GINTSTS & OTG_FS->GINTMSK;
     OTG_FS->GINTSTS = irqs;
-//    Uart.Printf("Irq: %X\r", irqs);
+//    Uart.PrintfI("\rIrq: %X", irqs);
 
     // Reset
-    if(irqs & GINTSTS_USBRST) IDeviceReset();
+    if(irqs & GINTSTS_USBRST) IReset();
     // Enumeration done
     if(irqs & GINTSTS_ENUMDNE) { (void)OTG_FS->DSTS; }
     // RX FIFO not empty
@@ -383,14 +398,14 @@ void Usb_t::IIrqHandler() {
         if(src & (1 << 0)) IEpInHandler(0);
         if(src & (1 << 1)) IEpInHandler(1);
         if(src & (1 << 2)) IEpInHandler(2);
-//        if(src & (1 << 3)) IEpInHandler(3);
+        if(src & (1 << 3)) IEpInHandler(3);
     }
     if(irqs & GINTSTS_OEPINT) {
         uint32_t src = OTG_FS->DAINT;
         if(src & (1 << 16)) IEpOutHandler(0);
         if(src & (1 << 17)) IEpOutHandler(1);
         if(src & (1 << 18)) IEpOutHandler(2);
-//        if(src & (1 << 19)) IEpOutHandler(3);
+        if(src & (1 << 19)) IEpOutHandler(3);
     }
 }
 
@@ -406,7 +421,7 @@ void Usb_t::IEpOutHandler(uint8_t EpID) {
     }
     // Receive transfer complete
     if((epint & DOEPINT_XFRC) and (OTG_FS->DOEPMSK & DOEPMSK_XFRCM)) {
-//        Uart.Printf("Out XFR cmp\r\n");
+//        Uart.PrintfI("\rOut XFR cmp");
         if(EpID == 0) {
             if(Ep[0].PktState == psZeroPkt) {
                 Ep[0].PktState = psNoPkt;
@@ -414,6 +429,11 @@ void Usb_t::IEpOutHandler(uint8_t EpID) {
                 Ep[0].PrepareOutTransaction(1, 3*8);
                 Ep[0].StartOutTransaction();
             }
+            else {
+                Ep[0].TransmitZeroPkt();
+                if(Events.OnDataOUT[EpID] != nullptr and Ep[EpID].LengthOut == 0) Events.OnDataOUT[EpID]();
+            }
+
         }
         else {// Restart reception if needed
 //            Uart.Printf("OutXFRC #%u\r", EpID);
@@ -475,13 +495,19 @@ void Usb_t::IEpInHandler(uint8_t EpID) {
             } // switch
         } // if(EpID == 0)
         else {
+            if(ep->TransmitFinalZeroPkt) ep->TransmitZeroPkt();
             ep->ResumeWaitingThd(OK);
         }
     }
     // TX FIFO empty
-    if((epint & DIEPINT_TXFE) and Ep[EpID].InFifoEmptyIRQEnabled()) {
+    if((epint & DIEPINT_TXFE) and ep->InFifoEmptyIRQEnabled()) {
 //        Uart.Printf("In TXFE\r");
-        Ep[EpID].BufToFifo();
+        if(ep->LengthIn > 0 and ep->PtrIn != nullptr) ep->BufToFifo();
+        else if(ep->PInQueue != nullptr) ep->QueueToFifo();
+        else {  // Buf len == 0
+            ep->State = esIdle;
+            ep->ResumeWaitingThd(RDY_OK);
+        }
     } // if txfe
 }
 
@@ -504,11 +530,11 @@ void Usb_t::IRxHandler() {
             }
             else {
                 Ep[EpID].PktState = psDataPkt;
-//                Uart.Printf("DataRcvd for %u\r", EpID);
+//                Uart.PrintfI("\r%u bytes rcvd for %u", Len, EpID);
                 // Read to queue
                 if(Ep[EpID].POutQueue != nullptr) {
                     Ep[EpID].FifoToQueue(Len);
-                    return;
+                    if(Events.OnDataOUT[EpID] != nullptr) Events.OnDataOUT[EpID]();
                 }
                 // Read to buffer
                 else if((Ep[EpID].PtrOut != nullptr) and (Ep[EpID].LengthOut != 0)) {
@@ -516,10 +542,8 @@ void Usb_t::IRxHandler() {
                     Ep[EpID].FifoToBuf(Ep[EpID].PtrOut, Len);
                     Ep[EpID].LengthOut -= Len;
                     Ep[EpID].PtrOut += Len;
-                    return;
                 }
-                Uart.Printf("\rUSB flush");
-                RxFifoFlush();
+                else RxFifoFlush();
             }
             break;
         case GRXSTSP_SETUP_COMP:    // Setup transaction completed
@@ -600,27 +624,73 @@ void Ep_t::BufToFifo() {
         WrittenBytesCnt += 4;
         // Check if data buffer is not empty
         if(LengthIn >= 4) LengthIn -= 4;
-        else LengthIn = 0;
+        else {
+            LengthIn = 0;
+            PtrIn = nullptr;
+        }
     }
     TransmitFinalZeroPkt = (WrittenBytesCnt == EpCfg[Indx].InMaxsize) and (LengthIn == 0);
     // Disable TxEmpty IRQ if everything is sent
     if(LengthIn == 0) DisableInFifoEmptyIRQ();
 }
 
+void Ep_t::QueueToFifo() {
+    chSysLockFromIsr();
+//    Uart.PrintfI("\r%S", __FUNCTION__);
+    uint32_t n = chOQGetFullI(PInQueue);
+    TransmitFinalZeroPkt = (n == EpCfg[Indx].InMaxsize);
+    if(n > EpCfg[Indx].InMaxsize) n = EpCfg[Indx].InMaxsize;
+    // Fill from queue
+    volatile uint32_t *pDst = OTG_FS->FIFO[Indx];
+    DWordBytes_t Src;
+    n = (n + 3) / 4;
+    while(n > 0) {
+        Src.b[0] = chOQGetI(PInQueue);
+        Src.b[1] = chOQGetI(PInQueue);
+        Src.b[2] = chOQGetI(PInQueue);
+        Src.b[3] = chOQGetI(PInQueue);
+        n--;
+//        Uart.PrintfI("\r%A", Src.b, 4, ' ');
+        *pDst = Src.DWord;
+        if(chOQIsEmptyI(PInQueue)) {
+            DisableInFifoEmptyIRQ();
+            PInQueue = nullptr; // Forget the queue
+            break;
+        }
+    } // while n>0
+    chSysUnlockFromIsr();
+}
+
 // ==== Transactions ====
 void Ep_t::TransmitZeroPkt() {
-//    Uart.Printf("Tx0\r");
+//    Uart.Printf("TxZero\r");
+    TransmitFinalZeroPkt = false;
     OTG_FS->ie[Indx].DIEPTSIZ = DIEPTSIZ_PKTCNT(1) | DIEPTSIZ_XFRSIZ(0);
     OTG_FS->ie[Indx].DIEPCTL |= DIEPCTL_EPENA | DIEPCTL_CNAK;   // Enable Ep and clear NAK
 }
 
 void Ep_t::StartTransmitBuf(uint8_t *Ptr, uint32_t ALen) {
- //    Uart.Printf("TxBuf Ep%u; %A\r", Indx, Ptr, ALen, ' ');
+//    Uart.Printf("\rTxBuf Ep%u; %A", Indx, Ptr, ALen, ' ');
     chSysLock();
     PtrIn = Ptr;
+    PInQueue = nullptr;
     Buzy = true;
     LengthIn = ALen;
-    PrepareInTransaction();   // Just prepare; may not fill fifo here
+    PrepareInTransaction(LengthIn);   // Just prepare; may not fill fifo here
+    StartInTransaction();
+    chSysUnlock();
+}
+
+void Ep_t::StartTransmitQueue(OutputQueue *PQ) {
+//    Uart.Printf("\r%S", __FUNCTION__);
+    if(Buzy) return;
+    chSysLock();
+    uint32_t n = chOQGetFullI(PQ);
+    if(n == 0) return;
+    PInQueue = PQ;
+    PtrIn = nullptr;
+    Buzy = true;
+    PrepareInTransaction(n);   // Just prepare; may not fill fifo here
     StartInTransaction();
     chSysUnlock();
 }

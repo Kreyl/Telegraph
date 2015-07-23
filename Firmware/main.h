@@ -16,7 +16,7 @@
 #define APP_NAME        "Telegraph"
 #define APP_VERSION     "2015-07-22_20:28"
 
-//#define USB_ENABLED TRUE
+#define USB_ENABLED TRUE
 
 // Timings
 
@@ -26,6 +26,8 @@ class App_t {
 private:
     VirtualTimer ITmr;
 public:
+    void OnUsbCmd();
+    // Eternal
     Thread *PThread;
     void InitThread() { PThread = chThdSelf(); }
     void SignalEvt(eventmask_t Evt) {
@@ -35,7 +37,6 @@ public:
     }
     void SignalEvtI(eventmask_t Evt) { chEvtSignalI(PThread, Evt); }
     void OnUartCmd(Uart_t *PUart);
-
     // Inner use
     void ITask();
 };

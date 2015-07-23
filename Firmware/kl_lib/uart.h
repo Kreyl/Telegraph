@@ -14,16 +14,10 @@
 #include "cmd.h"
 
 // Set to true if RX needed
-#define UART_RX_ENABLED     FALSE
+#define UART_RX_ENABLED     TRUE
 
 // UART
-#define UART_TXBUF_SZ       207
-
-
 #define UART                USART1
-#define UART_GPIO           GPIOB
-#define UART_TX_PIN         6
-
 #define UART_RCC_ENABLE()   rccEnableUSART1(FALSE)
 #define UART_RCC_DISABLE()  rccDisableUSART1(FALSE)
 
@@ -44,10 +38,14 @@
 #define UART_TX_REG         UART->DR
 #define UART_RX_REG         UART->DR
 #define UART_DMA_TX         STM32_DMA2_STREAM7
-#define UART_DMA_RX         STM32_DMA1_STREAM5
+#define UART_DMA_RX         STM32_DMA2_STREAM5
 #endif
 #define UART_DMA_CHNL       4
 
+// ==== TX ====
+#define UART_TXBUF_SZ       207
+#define UART_GPIO           GPIOB
+#define UART_TX_PIN         6
 
 #define UART_DMA_TX_MODE    STM32_DMA_CR_CHSEL(UART_DMA_CHNL) | \
                             DMA_PRIORITY_LOW | \
@@ -60,7 +58,7 @@
 #if UART_RX_ENABLED // ==== RX ====
 #define UART_RXBUF_SZ       99 // unprocessed bytes
 #define UART_CMD_BUF_SZ     54 // payload bytes
-#define UART_RX_PIN         10
+#define UART_RX_PIN         7
 
 #define UART_RX_POLLING_MS  99
 #define UART_DMA_RX_MODE    STM32_DMA_CR_CHSEL(UART_DMA_CHNL) | \
@@ -71,7 +69,6 @@
                             STM32_DMA_CR_DIR_P2M |    /* Direction is peripheral to memory */ \
                             STM32_DMA_CR_CIRC         /* Circular buffer enable */
 
-// Cmd related
 typedef Cmd_t<99> UartCmd_t;
 #endif
 

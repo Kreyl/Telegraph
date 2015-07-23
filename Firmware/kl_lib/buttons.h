@@ -12,11 +12,10 @@
 #include "kl_lib.h"
 #include "kl_buf.h"
 
-//#include "PinSnsSettings.h"
+#include "PinSnsSettings.h"
 #include "SimpleSensors.h"
 
-#define BUTTONS_ENABLED FALSE
-#if BUTTONS_ENABLED
+#if BUTTONS_ENABLED // defined in PinSnsSettings
 
 // Select required events. BtnPress is a must.
 #define BTN_RELEASE     FALSE

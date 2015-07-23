@@ -43,12 +43,6 @@ typedef struct {
     uint16_t OutMaxsize;
 } EpCfg_t;
 
-#define EP_CNT                  3   // Control, In & Out
-extern const EpCfg_t EpCfg[EP_CNT];
-// Endpoint addresses. Nothing to do with inner Indx value.
-#define EP_BULK_OUT_ADDR        1
-#define EP_BULK_IN_ADDR         2
-
 void GetDescriptor(uint8_t Type, uint8_t Indx, uint8_t **PPtr, uint32_t *PLen);
 
 enum USB_DescriptorTypes_t {
@@ -126,7 +120,14 @@ typedef struct {
 } __attribute__ ((__packed__)) StringDescriptor_t;
 #endif
 
-#if 1 // ================= Mass Storage Device descriptors =====================
+#if 0 // ================= Mass Storage Device descriptors =====================
+#define USB_MASS_STORAGE    1
+
+#define EP_CNT                  3   // Control, In & Out
+// Endpoint addresses. Nothing to do with inner Indx value.
+#define EP_BULK_OUT_ADDR        1
+#define EP_BULK_IN_ADDR         2
+
 typedef struct {
     ConfigHeader_t          ConfigHeader;       // Standard config header
     // Mass Storage Interface
@@ -136,6 +137,69 @@ typedef struct {
 } __attribute__ ((__packed__)) ConfigDescriptor_t;
 #endif
 
+#if 1 // ========================== CDC descriptors ============================
+#define USB_CDC     1
+
+#if 1 // ==== Endpoints config ====
+#define EP_CNT      4   // Control, In & Out, Interrupt
+const EpCfg_t EpCfg[EP_CNT] = {
+        {EP_TYPE_CONTROL,   EP0_SZ,          EP0_SZ},       // Control endpoint, Indx = 0
+        {EP_TYPE_INTERRUPT, EP_INTERRUPT_SZ, 0},            // Interrupt In endpoint, Indx = 1
+        {EP_TYPE_BULK,      0,               EP_BULK_SZ},   // Bulk Out endpoint, Indx = 2
+        {EP_TYPE_BULK,      EP_BULK_SZ,      0},            // Bulk In endpoint, Indx = 3
+};
+#define EP_INTERRUPT_INDX   1
+#define EP_BULK_OUT_INDX    2
+#define EP_BULK_IN_INDX     3
+#endif
+
+
+typedef struct {
+    uint8_t  bFunctionLength;   // Size of the descriptor, in bytes
+    uint8_t  bDescriptorType;   // Type of the descriptor, either a value in USB_DescriptorTypes_t or a value given by the specific class.
+    uint8_t  bDescriptorSubType;// Sub type value used to distinguish between CDC class-specific descriptors, must be CDC_DSUBTYPE_CSInterface_Header.
+    uint16_t bcdCDC;            // Version number of the CDC specification implemented by the device, encoded in BCD format.
+} __attribute__ ((__packed__)) CDCFuncHeader_t;
+
+// Call Management Functional Descriptor
+typedef struct {
+    uint8_t bFunctionLength;    // Size of the descriptor, in bytes.
+    uint8_t bDescriptorType;    // Type of the descriptor, either a value in USB_DescriptorTypes_t or a value given by the specific class.
+    uint8_t bDescriptorSubType; // Sub type value used to distinguish between CDC class-specific descriptors, must be CDC_DSUBTYPE_CSInterface_ACM.
+    uint8_t bmCapabilities;     // Capabilities of the ACM interface, given as a bit mask. For most devices, this should be set to a fixed value of 0x06 - for other capabilities, refer to the CDC ACM specification.
+    uint8_t bDataInterface;
+} __attribute__ ((__packed__)) CDCFuncCallMgmt_t;
+
+typedef struct {
+    uint8_t bFunctionLength;    // Size of the descriptor, in bytes.
+    uint8_t bDescriptorType;    // Type of the descriptor, either a value in USB_DescriptorTypes_t or a value given by the specific class.
+    uint8_t bDescriptorSubType; // Sub type value used to distinguish between CDC class-specific descriptors, must be CDC_DSUBTYPE_CSInterface_ACM.
+    uint8_t bmCapabilities;     // Capabilities of the ACM interface, given as a bit mask. For most devices, this should be set to a fixed value of 0x06 - for other capabilities, refer to the CDC ACM specification.
+} __attribute__ ((__packed__)) CDCFuncACM_t;
+
+typedef struct {
+    uint8_t bFunctionLength;    // Size of the descriptor, in bytes.
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType; // Sub type value used to distinguish between CDC class-specific descriptors, must be CDC_DSUBTYPE_CSInterface_Union.
+    uint8_t bMasterInterface;   // Interface number of the CDC Control interface.
+    uint8_t bSlaveInterface0;   // Interface number of the CDC Data interface.
+} __attribute__ ((__packed__)) CDCFuncUnion_t;
+
+typedef struct {
+    ConfigHeader_t          ConfigHeader;       // Standard config header
+    // CDC Control Interface
+    InterfaceDescriptor_t   CCI_Interface;      // Standard interface descriptor
+    CDCFuncHeader_t         FuncHeader;         // Header functional
+    CDCFuncCallMgmt_t       FuncCallMgmt;       // Call management functional
+    CDCFuncACM_t            FuncAcm;            // Abstract Control Model Functional
+    CDCFuncUnion_t          FuncUnion;          // Union Functional
+    EndpointDescriptor_t    NotificationEndpoint;
+    // CDC Data Interface
+    InterfaceDescriptor_t   DCI_Interface;      // Standard interface descriptor
+    EndpointDescriptor_t    DataOutEndpoint;
+    EndpointDescriptor_t    DataInEndpoint;
+} __attribute__ ((__packed__)) ConfigDescriptor_t;
+#endif
 
 #ifdef __cplusplus
 }

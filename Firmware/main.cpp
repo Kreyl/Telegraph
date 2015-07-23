@@ -9,7 +9,10 @@
 #include "ch.h"
 #include "hal.h"
 #include "main.h"
-//#include "SimpleSensors.h"
+#include "buttons.h"
+#include "SimpleSensors.h"
+#include "usb_f2_4.h"
+#include "usb_uart.h"
 
 App_t App;
 
@@ -43,6 +46,8 @@ int main() {
     // Report problem with clock if any
     if(ClkResult) Uart.Printf("Clock failure\r");
 
+    PinSensors.Init();
+
     // ==== Main cycle ====
     App.ITask();
 }
@@ -52,8 +57,12 @@ void App_t::ITask() {
     while(true) {
         __attribute__((unused))
         uint32_t EvtMsk = chEvtWaitAny(ALL_EVENTS);
-        // ==== Card ====
-//        if(EvtMsk & EVTMSK_CARD_APPEARS) ProcessCardAppearance();
+#if 1   // ==== Uart cmd ====
+        if(EvtMsk & EVTMSK_UART_NEW_CMD) {
+            OnUartCmd(&Uart);
+            Uart.SignalCmdProcessed();
+        }
+#endif
 
 #if USB_ENABLED // ==== USB connection ====
         if(EvtMsk & EVTMSK_USB_CONNECTED) {
@@ -62,20 +71,76 @@ void App_t::ITask() {
             Clk.InitSysTick();
             chSysUnlock();
             Usb.Init();
+            UsbUart.Init();
             chThdSleepMilliseconds(540);
             Usb.Connect();
             Uart.Printf("\rUsb connected, AHB freq=%uMHz", Clk.AHBFreqHz/1000000);
+//            chThdSleepMilliseconds(9999);
+//            UsbUart.Printf("\rAga");
         }
         if(EvtMsk & EVTMSK_USB_DISCONNECTED) {
             Usb.Shutdown();
-            MassStorage.Reset();
             chSysLock();
             Clk.SetFreq12Mhz();
             Clk.InitSysTick();
             chSysUnlock();
             Uart.Printf("\rUsb disconnected, AHB freq=%uMHz", Clk.AHBFreqHz/1000000);
         }
+        if(EvtMsk & EVTMSK_USB_DATA_OUT) {
+            Uart.Printf("\rUsb out");
+            while(UsbUart.ProcessOutData() == pdrNewCmd) OnUsbCmd();
+        }
 #endif
 
     } // while true
 }
+
+void App_t::OnUsbCmd() {
+    UsbCmd_t *PCmd = &UsbUart.Cmd;
+    __attribute__((unused)) int32_t dw32 = 0;  // May be unused in some configurations
+    Uart.Printf("\r%S", PCmd->Name);
+    // Handle command
+    if(PCmd->NameIs("Ping")) UsbUart.Ack(OK);
+
+    else UsbUart.Ack(CMD_UNKNOWN);
+}
+
+void App_t::OnUartCmd(Uart_t *PUart) {
+    UartCmd_t *PCmd = &PUart->Cmd;
+    __attribute__((unused)) int32_t dw32 = 0;  // May be unused in some configurations
+    Uart.Printf("\r%S\r", PCmd->Name);
+    // Handle command
+    if(PCmd->NameIs("Ping")) PUart->Ack(OK);
+
+    else if(PCmd->NameIs("GetID")) PUart->Reply("ID", 2);
+
+    else if(PCmd->NameIs("SetID")) {
+        if(PCmd->GetNextToken() != OK) { PUart->Ack(CMD_ERROR); return; }
+        if(PCmd->TryConvertTokenToNumber(&dw32) != OK) { PUart->Ack(CMD_ERROR); return; }
+        uint8_t r = dw32;
+        PUart->Ack(r);
+    }
+
+    else PUart->Ack(CMD_UNKNOWN);
+}
+
+#if 1 // ==== Pin Sns handlers ====
+void ProcessKey(PinSnsState_t *PState, uint32_t Len) {
+    if(*PState == pssFalling) { // Key pressed
+        Uart.Printf("\rKey Press");
+    }
+    else if(*PState == pssRising) { // Key released
+        Uart.Printf("\rKey Release");
+    }
+}
+
+void ProcessLine(PinSnsState_t *PState, uint32_t Len) {
+    //Uart.Printf("\rLine1 St=%u", PState[0]);
+    //Uart.Printf("\rLine2 St=%u", PState[1]);
+}
+
+void ProcessUsbSns(PinSnsState_t *PState, uint32_t Len) {
+    if     (*PState == pssRising)  App.SignalEvt(EVTMSK_USB_CONNECTED);
+    else if(*PState == pssFalling) App.SignalEvt(EVTMSK_USB_DISCONNECTED);
+}
+#endif
