@@ -34,6 +34,23 @@ void Timer_t::Init() {
     else if(ITmr == TIM17) { RCC->APB2ENR |= RCC_APB2ENR_TIM17EN; }
     // Clock src
     PClk = &Clk.APBFreqHz;
+#elif defined STM32F2XX
+    if(ANY_OF_5(ITmr, TIM1, TIM8, TIM9, TIM10, TIM11)) PClk = &Clk.APB2FreqHz;
+    else PClk = &Clk.APB1FreqHz;
+    if     (ITmr == TIM1)  { rccEnableTIM1(FALSE); }
+    else if(ITmr == TIM2)  { rccEnableTIM2(FALSE); }
+    else if(ITmr == TIM3)  { rccEnableTIM3(FALSE); }
+    else if(ITmr == TIM4)  { rccEnableTIM4(FALSE); }
+    else if(ITmr == TIM5)  { rccEnableTIM5(FALSE); }
+    else if(ITmr == TIM6)  { rccEnableTIM6(FALSE); }
+    else if(ITmr == TIM7)  { rccEnableTIM7(FALSE); }
+    else if(ITmr == TIM8)  { rccEnableTIM8(FALSE); }
+    else if(ITmr == TIM9)  { rccEnableTIM9(FALSE); }
+    else if(ITmr == TIM10)  { RCC->APB2ENR |= RCC_APB2ENR_TIM10EN; }
+    else if(ITmr == TIM11)  { rccEnableTIM11(FALSE); }
+    else if(ITmr == TIM12)  { rccEnableTIM12(FALSE); }
+    else if(ITmr == TIM13)  { RCC->APB1ENR |= RCC_APB1ENR_TIM13EN; }
+    else if(ITmr == TIM14)  { rccEnableTIM14(FALSE); }
 #endif
 }
 
@@ -58,6 +75,11 @@ void Timer_t::InitPwm(GPIO_TypeDef *GPIO, uint16_t N, uint8_t Chnl, uint32_t ATo
         if(GPIO == GPIOA) PinSetupAlterFunc(GPIO, N, OutputType, pudNone, AF5);
         else PinSetupAlterFunc(GPIO, N, OutputType, pudNone, AF2);
     }
+#elif defined STM32F2XX
+    if(ANY_OF_2(ITmr, TIM1, TIM2)) PinSetupAlterFunc(GPIO, N, OutputType, pudNone, AF1);
+    else if(ANY_OF_3(ITmr, TIM3, TIM4, TIM5)) PinSetupAlterFunc(GPIO, N, OutputType, pudNone, AF2);
+    else if(ANY_OF_4(ITmr, TIM8, TIM9, TIM10, TIM11)) PinSetupAlterFunc(GPIO, N, OutputType, pudNone, AF3);
+    else if(ANY_OF_3(ITmr, TIM12, TIM13, TIM14)) PinSetupAlterFunc(GPIO, N, OutputType, pudNone, AF9);
 #endif
 
     ITmr->ARR = ATopValue;
@@ -68,36 +90,36 @@ void Timer_t::InitPwm(GPIO_TypeDef *GPIO, uint16_t N, uint8_t Chnl, uint32_t ATo
             ITmr->CCMR1 |= (tmp << 4);
             ITmr->CCER  |= TIM_CCER_CC1E;
             break;
-
         case 2:
             ITmr->CCMR1 |= (tmp << 12);
             ITmr->CCER  |= TIM_CCER_CC2E;
             break;
-
         case 3:
             ITmr->CCMR2 |= (tmp << 4);
             ITmr->CCER  |= TIM_CCER_CC3E;
             break;
-
         case 4:
             ITmr->CCMR2 |= (tmp << 12);
             ITmr->CCER  |= TIM_CCER_CC4E;
             break;
-
         default: break;
     }
 }
 
 void Timer_t::SetUpdateFrequency(uint32_t FreqHz) {
+#if defined STM32F2XX
+    uint32_t UpdFreqMax;
+    if(ANY_OF_5(ITmr, TIM1, TIM8, TIM9, TIM10, TIM11))  // APB2 is clock src
+        UpdFreqMax = (*PClk) * Clk.TimerAPB2ClkMulti / (ITmr->ARR + 1);
+    else // APB1 is clock src
+        UpdFreqMax = (*PClk) * Clk.TimerAPB1ClkMulti / (ITmr->ARR + 1);
+#else
     uint32_t UpdFreqMax = *PClk / (ITmr->ARR + 1);
+#endif
     uint32_t div = UpdFreqMax / FreqHz;
     if(div != 0) div--;
     ITmr->PSC = div;
-//    uint32_t divider = ITmr->ARR * FreqHz;
-//    if(divider == 0) return;
-//    uint32_t FPrescaler = *PClk / divider;
-//    if(FPrescaler != 0) FPrescaler--;   // do not decrease in case of high freq
-//    ITmr->PSC = (uint16_t)FPrescaler;
+//    Uart.Printf("\r  FMax=%u; div=%u", UpdFreqMax, div);
 }
 
 #endif

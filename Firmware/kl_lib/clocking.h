@@ -61,6 +61,8 @@ public:
     uint32_t APB1FreqHz;    // PCLK1: APB1 Bus clock; 30 MHz max
     uint32_t APB2FreqHz;    // PCLK2: APB2 Bus clock; 60 MHz max
     uint32_t UsbSdioFreqHz; // Clock is intended to be 48 MHz
+    uint8_t TimerAPB1ClkMulti = 1;
+    uint8_t TimerAPB2ClkMulti = 1;
     // Clk switching
     uint8_t SwitchToHSI();
     uint8_t SwitchToHSE();
@@ -96,6 +98,8 @@ public:
         UpdateFreqValues();
         SetupFlashLatency(AHBFreqHz/1000000);
     }
+
+    void PrintFreqs();
 
     // Clock output
     void MCO1Enable(Mco1Src_t Src, McoDiv_t Div);

@@ -8,6 +8,7 @@
 #include "clocking.h"
 #include "stm32_rcc.h"
 #include "kl_lib.h"
+#include "uart.h"
 
 Clk_t Clk;
 
@@ -86,6 +87,9 @@ void Clk_t::UpdateFreqValues() {
     APB1FreqHz = AHBFreqHz >> tmp;
     tmp = APBPrescTable[(RCC->CFGR & RCC_CFGR_PPRE2) >> 13];
     APB2FreqHz = AHBFreqHz >> tmp;
+    // Timer clock multiplier: 1 if APB_divider==1, 2 otherwise
+    TimerAPB1ClkMulti = (RCC->CFGR & RCC_CFGR_PPRE1_2)? 2 : 1;
+    TimerAPB2ClkMulti = (RCC->CFGR & RCC_CFGR_PPRE2_2)? 2 : 1;
 
     // ==== USB and SDIO freq ====
     UsbSdioFreqHz = 0;      // Will be changed only in case of PLL enabled
@@ -206,6 +210,13 @@ void Clk_t::MCO1Enable(Mco1Src_t Src, McoDiv_t Div) {
 void Clk_t::MCO1Disable() {
     PinSetupAnalog(GPIOA, 8);
     RCC->CFGR &= ~(RCC_CFGR_MCO1 | RCC_CFGR_MCO1PRE);
+}
+
+void Clk_t::PrintFreqs() {
+    Uart.Printf(
+            "\rAHBFreq=%uMHz; APB1Freq=%uMHz; APB2Freq=%uMHz; TimMulti1=%u, TimMulti2=%u",
+            Clk.AHBFreqHz/1000000, Clk.APB1FreqHz/1000000, Clk.APB2FreqHz/1000000,
+            TimerAPB1ClkMulti, TimerAPB2ClkMulti);
 }
 
 /*

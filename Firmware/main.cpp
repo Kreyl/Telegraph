@@ -13,8 +13,11 @@
 #include "SimpleSensors.h"
 #include "usb_f2_4.h"
 #include "usb_uart.h"
+#include "beeper.h"
+#include "Sequences.h"
 
 App_t App;
+Beeper_t Beeper;
 PinOutputPushPull_t Line1Tx(GPIOB, 4);
 
 // Universal VirtualTimer callback
@@ -50,6 +53,10 @@ int main() {
     PinSensors.Init();
     Line1Tx.Init();
     Line1Tx.SetLo();
+
+    Beeper.Init();
+    Beeper.StartSequence(bsqBeepBeep);
+    chThdSleepMilliseconds(720);
 
     // ==== Main cycle ====
     App.ITask();
@@ -88,7 +95,9 @@ void App_t::ITask() {
             UsbUart.Init();
             chThdSleepMilliseconds(540);
             Usb.Connect();
-            Uart.Printf("\rUsb connected, AHB freq=%uMHz", Clk.AHBFreqHz/1000000);
+            Uart.Printf("\rUsb connected");
+            Clk.PrintFreqs();
+            Beeper.StartSequence(bsqBeepBeep);
         }
         if(EvtMsk & EVTMSK_USB_DISCONNECTED) {
             Usb.Shutdown();

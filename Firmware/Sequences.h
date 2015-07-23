@@ -10,7 +10,7 @@
 
 #include "ChunkTypes.h"
 
-#if 1 // ============================ LED blink ================================
+#if 0 // ============================ LED blink ================================
 const LedChunk_t lsqIdle[] = {
         {csSetup, 0, clBlack},
         {csEnd}
@@ -189,7 +189,7 @@ const LedChunk_t lsqBlinkGreenX2[] = {
 };
 #endif
 
-#if 1 // ============================ LED RGB ==================================
+#if 0 // ============================ LED RGB ==================================
 // ==== Door ====
 #define clDoorOpen      ((Color_t){0,   255, 0})
 #define clDoorClosed    ((Color_t){18,  0,   0})
@@ -218,6 +218,28 @@ const LedChunk_t lsqDoorSecretKey[] = {
         {csEnd}
 };
 
+#endif
+
+#if 1 // ============================= Beeper ==================================
+#define BEEP_VOLUME     2
+
+// Type, duration_ms, freq, volume
+const BeepChunk_t bsqButton[] = {
+        {csSetup, 1, 1975},
+        {csWait, 54},
+        {csSetup, 0},
+        {csEnd}
+};
+const BeepChunk_t bsqBeepBeep[] = {
+        {csSetup, BEEP_VOLUME, 1975},
+        {csWait, 54},
+        {csSetup, 0},
+        {csWait, 54},
+        {csSetup, BEEP_VOLUME, 1975},
+        {csWait, 54},
+        {csSetup, 0},
+        {csEnd}
+};
 #endif
 
 #endif /* SEQUENCES_H_ */

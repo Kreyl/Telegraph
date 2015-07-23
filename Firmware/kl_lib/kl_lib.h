@@ -15,7 +15,7 @@
 #include "clocking.h"
 
 // Lib version
-#define KL_LIB_VERSION      20150611_1130
+#define KL_LIB_VERSION      20150724_0005
 
 #if defined STM32L1XX_MD
 #include "stm32l1xx.h"
@@ -61,10 +61,7 @@ enum BitOrder_t {boMSB, boLSB};
 enum LowHigh_t  {Low, High};
 enum RiseFall_t {Rising, Falling};
 enum Inverted_t {invNotInverted, invInverted};
-enum PinOutMode_t {
-    omPushPull  = 0,
-    omOpenDrain = 1
-};
+enum PinOutMode_t {omPushPull = 0, omOpenDrain = 1};
 
 typedef void (*ftVoidVoid)(void);
 typedef void (*ftVoidPVoid)(void*p);
@@ -382,7 +379,8 @@ static inline void PinSetupAlterFunc(
 }
 #endif
 
-#if 1 // ===================== Output pin manipulations ========================
+#if 1 // ===================== Output pin ========================
+// ==== On/Off output pin ====
 class PinOutputPushPull_t {
 public:
     GPIO_TypeDef *PGpio;
@@ -394,6 +392,7 @@ public:
     PinOutputPushPull_t(GPIO_TypeDef *APGpio, uint16_t APin) : PGpio(APGpio), Pin(APin) {}
 };
 
+// ==== PWM output ====
 // Example: PinOutputPWM_t<LED_TOP_VALUE, LED_INVERTED_PWM> IChnl({GPIOB, 15, TIM11, 1});
 template <uint32_t TopValue, Inverted_t Inverted, PinOutMode_t OutputType>
 class PinOutputPWM_t : private Timer_t {
