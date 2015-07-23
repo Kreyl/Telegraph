@@ -10,6 +10,7 @@
 
 #include "kl_lib.h"
 #include "uart.h"
+#include "kl_buf.h"
 
 #include "evt_mask.h"
 
@@ -18,15 +19,34 @@
 
 #define USB_ENABLED TRUE
 
-// Timings
 
 void TmrGeneralCallback(void *p);
 
+// ==== Line RX ====
+#define RX_MIN_DURTN_MS     27
+#define RX_REPORT_EVERY_MS  360
+#define RX_BUF_SZ           45
+class LineRx_t {
+private:
+    uint32_t ITime;
+public:
+    CircBufNumber_t<uint32_t, RX_BUF_SZ> DotBuf;
+    void OnLineShort() { ITime = chTimeNow(); }
+    void OnLineRelease() {
+        uint32_t Duration = chTimeNow() - ITime;
+//        Uart.Printf("\rt=%u; it=%u; d=%u", chTimeNow(), ITime, Duration);
+        ITime = chTimeNow();
+        if(Duration > RX_MIN_DURTN_MS) DotBuf.Put(Duration);
+    }
+};
+
 class App_t {
 private:
-    VirtualTimer ITmr;
+
 public:
     void OnUsbCmd();
+    VirtualTimer ITmrRxReport;
+    LineRx_t LineRx1;
     // Eternal
     Thread *PThread;
     void InitThread() { PThread = chThdSelf(); }

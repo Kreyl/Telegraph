@@ -15,6 +15,7 @@
 #include "usb_uart.h"
 
 App_t App;
+PinOutputPushPull_t Line1Tx(GPIOB, 4);
 
 // Universal VirtualTimer callback
 void TmrGeneralCallback(void *p) {
@@ -47,6 +48,8 @@ int main() {
     if(ClkResult) Uart.Printf("Clock failure\r");
 
     PinSensors.Init();
+    Line1Tx.Init();
+    Line1Tx.SetLo();
 
     // ==== Main cycle ====
     App.ITask();
@@ -57,6 +60,17 @@ void App_t::ITask() {
     while(true) {
         __attribute__((unused))
         uint32_t EvtMsk = chEvtWaitAny(ALL_EVENTS);
+
+        if(EvtMsk & EVTMSK_RX_REPORT) {
+            while(true) {
+                uint32_t Duration=0;
+                uint8_t r = LineRx1.DotBuf.Get(&Duration);
+                if(r != OK) break;
+                //UsbUart.Printf("RX=%u\r\n", Duration);
+                Uart.Printf("\rRX=%u", Duration);
+            }
+        }
+
 #if 1   // ==== Uart cmd ====
         if(EvtMsk & EVTMSK_UART_NEW_CMD) {
             OnUartCmd(&Uart);
@@ -75,8 +89,6 @@ void App_t::ITask() {
             chThdSleepMilliseconds(540);
             Usb.Connect();
             Uart.Printf("\rUsb connected, AHB freq=%uMHz", Clk.AHBFreqHz/1000000);
-//            chThdSleepMilliseconds(9999);
-//            UsbUart.Printf("\rAga");
         }
         if(EvtMsk & EVTMSK_USB_DISCONNECTED) {
             Usb.Shutdown();
@@ -87,7 +99,6 @@ void App_t::ITask() {
             Uart.Printf("\rUsb disconnected, AHB freq=%uMHz", Clk.AHBFreqHz/1000000);
         }
         if(EvtMsk & EVTMSK_USB_DATA_OUT) {
-            Uart.Printf("\rUsb out");
             while(UsbUart.ProcessOutData() == pdrNewCmd) OnUsbCmd();
         }
 #endif
@@ -135,8 +146,15 @@ void ProcessKey(PinSnsState_t *PState, uint32_t Len) {
 }
 
 void ProcessLine(PinSnsState_t *PState, uint32_t Len) {
-    //Uart.Printf("\rLine1 St=%u", PState[0]);
-    //Uart.Printf("\rLine2 St=%u", PState[1]);
+    if(PState[0] == pssFalling) { // Key pressed
+//        Uart.Printf("\rLineShort");
+        App.LineRx1.OnLineShort();
+    }
+    else if(PState[0] == pssRising) { // Key released
+//        Uart.Printf("\rLine Release");
+        App.LineRx1.OnLineRelease();
+        chVTStartIfNotStarted(&App.ITmrRxReport, MS2ST(RX_REPORT_EVERY_MS), EVTMSK_RX_REPORT);
+    }
 }
 
 void ProcessUsbSns(PinSnsState_t *PState, uint32_t Len) {

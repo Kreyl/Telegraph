@@ -12,6 +12,8 @@
 #define EVTMSK_NO_MASK          0
 
 #define EVTMSK_UART_NEW_CMD     EVENT_MASK(1)
+// RX
+#define EVTMSK_RX_REPORT        EVENT_MASK(10)
 // Indication
 // Sensors
 // USB

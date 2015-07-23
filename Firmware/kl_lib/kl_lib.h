@@ -126,15 +126,21 @@ void TmrGeneralCallback(void *p) {
  */
 
 static inline void chVTRestart(VirtualTimer *vtp, systime_t time, vtfunc_t vtfunc, void *par) {
-    chSysLock()
+    chSysLock();
     if(chVTIsArmedI(vtp)) chVTResetI(vtp);
     chVTSetI(vtp, time, vtfunc, par);
     chSysUnlock();
 }
 static inline void chVTRestart(VirtualTimer *vtp, systime_t time, eventmask_t Evt) {
-    chSysLock()
+    chSysLock();
     if(chVTIsArmedI(vtp)) chVTResetI(vtp);
     chVTSetI(vtp, time, TmrGeneralCallback, (void*)Evt);
+    chSysUnlock();
+}
+
+static inline void chVTStartIfNotStarted(VirtualTimer *vtp, systime_t time, eventmask_t Evt) {
+    chSysLock();
+    if(!chVTIsArmedI(vtp)) chVTSetI(vtp, time, TmrGeneralCallback, (void*)Evt);
     chSysUnlock();
 }
 
