@@ -25,20 +25,43 @@ void TmrGeneralCallback(void *p);
 // ==== Line RX ====
 #define RX_MIN_DURTN_MS     27
 #define RX_REPORT_EVERY_MS  360
-#define RX_BUF_SZ           45
-class LineRx_t {
+struct DotSpace_t {
+    uint32_t Dot, Space;
+};
+
+template <uint32_t Sz>
+class RxBuf_t {
 private:
     uint32_t ITime;
+    DotSpace_t DS;
+    CircBuf_t<DotSpace_t, Sz> DotBuf;
 public:
-    CircBufNumber_t<uint32_t, RX_BUF_SZ> DotBuf;
-    void OnLineShort() { ITime = chTimeNow(); }
-    void OnLineRelease() {
+    void OnShort() {
+        uint32_t Duration = chTimeNow() - ITime;
+        ITime = chTimeNow();
+        if(Duration > RX_MIN_DURTN_MS) DS.Space = Duration;
+    }
+    void OnRelease() {
         uint32_t Duration = chTimeNow() - ITime;
 //        Uart.Printf("\rt=%u; it=%u; d=%u", chTimeNow(), ITime, Duration);
         ITime = chTimeNow();
-        if(Duration > RX_MIN_DURTN_MS) DotBuf.Put(Duration);
+        if(Duration > RX_MIN_DURTN_MS) {
+            DS.Dot = Duration;
+            DotBuf.Put(&DS);
+        }
     }
+    uint8_t Get(DotSpace_t *p) { return DotBuf.Get(p); }
 };
+
+struct Settings_t {
+    int32_t BeepInt=0;
+    int32_t ConnectBeep=0;
+    int32_t RxBeep=0;
+    int32_t TxBeep=0;
+    int32_t TxLine=0;
+
+};
+extern Settings_t Settings;
 
 class App_t {
 private:
@@ -46,9 +69,11 @@ private:
 public:
     void OnUsbCmd();
     VirtualTimer ITmrRxReport;
-    LineRx_t LineRx1;
+    RxBuf_t<2007> LineRx1;
+    RxBuf_t<207> KeyRx;
+    CircBuf_t<DotSpace_t, 2007> UsbRx;
     // Eternal
-    Thread *PThread;
+    Thread *PThread, *PTxThread;
     void InitThread() { PThread = chThdSelf(); }
     void SignalEvt(eventmask_t Evt) {
         chSysLock();
@@ -60,7 +85,13 @@ public:
     // Inner use
     void ITask();
 };
-
 extern App_t App;
+
+//class Tx_t {
+//private:
+//
+//public:
+//
+//};
 
 #endif /* MAIN_H_ */

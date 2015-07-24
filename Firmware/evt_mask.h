@@ -13,9 +13,9 @@
 
 #define EVTMSK_UART_NEW_CMD     EVENT_MASK(1)
 // RX
-#define EVTMSK_RX_REPORT        EVENT_MASK(10)
-// Indication
-// Sensors
+#define EVTMSK_RX_REPORT        EVENT_MASK(5)
+// TX
+#define EVTMSK_TX_USB           EVENT_MASK(10)
 // USB
 #define EVTMSK_USB_CONNECTED    EVENT_MASK(21)
 #define EVTMSK_USB_DISCONNECTED EVENT_MASK(22)

@@ -30,6 +30,7 @@ public:
         IPin.SetFrequencyHz(Freq_Hz);
         IPin.Set(Volume);
     }
+    void Off() { IPin.Set(0); }
 };
 
 

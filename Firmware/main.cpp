@@ -18,7 +18,8 @@
 
 App_t App;
 Beeper_t Beeper;
-PinOutputPushPull_t Line1Tx(GPIOB, 4);
+PinOutputPushPull_t Line1TxPin(GPIOB, 4);
+Settings_t Settings;
 
 // Universal VirtualTimer callback
 void TmrGeneralCallback(void *p) {
@@ -26,6 +27,10 @@ void TmrGeneralCallback(void *p) {
     App.SignalEvtI((eventmask_t)p);
     chSysUnlockFromIsr();
 }
+
+static WORKING_AREA(waTxThread, 128);
+__attribute__((__noreturn__))
+static void TxThread(void *arg);
 
 int main() {
     // ==== Setup clock ====
@@ -51,8 +56,11 @@ int main() {
     if(ClkResult) Uart.Printf("Clock failure\r");
 
     PinSensors.Init();
-    Line1Tx.Init();
-    Line1Tx.SetLo();
+    Line1TxPin.Init();
+    Line1TxPin.SetLo();
+
+    // TX thread
+    App.PTxThread = chThdCreateStatic(waTxThread, sizeof(waTxThread), LOWPRIO, (tfunc_t)TxThread, NULL);
 
     Beeper.Init();
     Beeper.StartSequence(bsqBeepBeep);
@@ -69,12 +77,16 @@ void App_t::ITask() {
         uint32_t EvtMsk = chEvtWaitAny(ALL_EVENTS);
 
         if(EvtMsk & EVTMSK_RX_REPORT) {
-            while(true) {
-                uint32_t Duration=0;
-                uint8_t r = LineRx1.DotBuf.Get(&Duration);
-                if(r != OK) break;
+            DotSpace_t DS;
+            // Line RX
+            while(LineRx1.Get(&DS) == OK) {
                 //UsbUart.Printf("RX=%u\r\n", Duration);
-                Uart.Printf("\rRX=%u", Duration);
+                Uart.Printf("\r#RX %u %u", DS.Space, DS.Dot);
+            }
+            // Key RX
+            while(KeyRx.Get(&DS) == OK) {
+                //UsbUart.Printf("RX=%u\r\n", Duration);
+                Uart.Printf("\r#RX %u %u", DS.Space, DS.Dot);
             }
         }
 
@@ -122,6 +134,58 @@ void App_t::OnUsbCmd() {
     // Handle command
     if(PCmd->NameIs("Ping")) UsbUart.Ack(OK);
 
+    else if(PCmd->NameIs("#morse")) {
+        if(Settings.BeepInt != 0) Beeper.StartSequence(bsqBeep);
+        UsbUart.Ack(OK);
+    }
+    else if(PCmd->NameIs("#uartBeep")) {
+        if(PCmd->GetNextToken() != OK) { UsbUart.Ack(CMD_ERROR); return; }
+        if(PCmd->TryConvertTokenToNumber(&dw32) != OK) { UsbUart.Ack(CMD_ERROR); return; }
+        Settings.BeepInt = dw32;
+        UsbUart.Ack(OK);
+    }
+
+    else if(PCmd->NameIs("#connectBeep")) {
+        if(PCmd->GetNextToken() != OK) { UsbUart.Ack(CMD_ERROR); return; }
+        if(PCmd->TryConvertTokenToNumber(&dw32) != OK) { UsbUart.Ack(CMD_ERROR); return; }
+        Settings.ConnectBeep = dw32;
+        UsbUart.Ack(OK);
+    }
+    else if(PCmd->NameIs("#rxBeep")) {
+        if(PCmd->GetNextToken() != OK) { UsbUart.Ack(CMD_ERROR); return; }
+        if(PCmd->TryConvertTokenToNumber(&dw32) != OK) { UsbUart.Ack(CMD_ERROR); return; }
+        Settings.RxBeep = dw32;
+        UsbUart.Ack(OK);
+    }
+    else if(PCmd->NameIs("#txBeep")) {
+        if(PCmd->GetNextToken() != OK) { UsbUart.Ack(CMD_ERROR); return; }
+        if(PCmd->TryConvertTokenToNumber(&dw32) != OK) { UsbUart.Ack(CMD_ERROR); return; }
+        Settings.TxBeep = dw32;
+        UsbUart.Ack(OK);
+    }
+    else if(PCmd->NameIs("#Line")) {
+        if(PCmd->GetNextToken() != OK) { UsbUart.Ack(CMD_ERROR); return; }
+        if(PCmd->TryConvertTokenToNumber(&dw32) != OK) { UsbUart.Ack(CMD_ERROR); return; }
+        if(dw32 < 1 or dw32 > 2) { UsbUart.Ack(CMD_ERROR); return; }
+        Settings.TxLine = dw32;
+        UsbUart.Ack(OK);
+    }
+
+    else if(PCmd->NameIs("#tx")) {
+        DotSpace_t DS;
+        while(PCmd->GetNextToken() == OK) {
+            if(PCmd->TryConvertTokenToNumber(&dw32) != OK) { UsbUart.Ack(CMD_ERROR); return; }
+            DS.Space = dw32;
+            if(PCmd->GetNextToken() != OK) { UsbUart.Ack(CMD_ERROR); return; }
+            if(PCmd->TryConvertTokenToNumber(&dw32) != OK) { UsbUart.Ack(CMD_ERROR); return; }
+            DS.Dot = dw32;
+            UsbRx.Put(&DS);
+//            Uart.Printf("\rutx %u %u", DS.Space, DS.Dot);
+        }
+        chEvtSignal(PTxThread, EVTMSK_TX_USB);
+        UsbUart.Ack(OK);
+    }
+
     else UsbUart.Ack(CMD_UNKNOWN);
 }
 
@@ -147,21 +211,26 @@ void App_t::OnUartCmd(Uart_t *PUart) {
 #if 1 // ==== Pin Sns handlers ====
 void ProcessKey(PinSnsState_t *PState, uint32_t Len) {
     if(*PState == pssFalling) { // Key pressed
-        Uart.Printf("\rKey Press");
+//        Uart.Printf("\rKey Press");
+        App.KeyRx.OnShort();
+        Beeper.Beep(1975, 1);
     }
     else if(*PState == pssRising) { // Key released
-        Uart.Printf("\rKey Release");
+//        Uart.Printf("\rKey Release");
+        App.KeyRx.OnRelease();
+        Beeper.Beep(1975, 0);
+        chVTStartIfNotStarted(&App.ITmrRxReport, MS2ST(RX_REPORT_EVERY_MS), EVTMSK_RX_REPORT);
     }
 }
 
 void ProcessLine(PinSnsState_t *PState, uint32_t Len) {
     if(PState[0] == pssFalling) { // Key pressed
 //        Uart.Printf("\rLineShort");
-        App.LineRx1.OnLineShort();
+        App.LineRx1.OnShort();
     }
     else if(PState[0] == pssRising) { // Key released
 //        Uart.Printf("\rLine Release");
-        App.LineRx1.OnLineRelease();
+        App.LineRx1.OnRelease();
         chVTStartIfNotStarted(&App.ITmrRxReport, MS2ST(RX_REPORT_EVERY_MS), EVTMSK_RX_REPORT);
     }
 }
@@ -171,3 +240,22 @@ void ProcessUsbSns(PinSnsState_t *PState, uint32_t Len) {
     else if(*PState == pssFalling) App.SignalEvt(EVTMSK_USB_DISCONNECTED);
 }
 #endif
+
+#if 1 // ==== TX thread ====
+static void TxThread(void *arg) {
+    chRegSetThreadName("Tx");
+    while(true) {
+        uint32_t EvtMsk = chEvtWaitAny(ALL_EVENTS);
+        if(EvtMsk & EVTMSK_TX_USB) {
+            DotSpace_t DS;
+            while(App.UsbRx.Get(&DS) == OK) {
+                if(DS.Space != 0) chThdSleepMilliseconds(DS.Space);
+                Beeper.Beep(1500, 1);
+                if(DS.Dot != 0) chThdSleepMilliseconds(DS.Dot);
+                Beeper.Off();
+            }
+        } // if tx usb
+    } // while true
+}
+#endif
+

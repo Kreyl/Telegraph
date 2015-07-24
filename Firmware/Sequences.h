@@ -230,6 +230,12 @@ const BeepChunk_t bsqButton[] = {
         {csSetup, 0},
         {csEnd}
 };
+const BeepChunk_t bsqBeep[] = {
+        {csSetup, BEEP_VOLUME, 1975},
+        {csWait, 99},
+        {csSetup, 0},
+        {csEnd}
+};
 const BeepChunk_t bsqBeepBeep[] = {
         {csSetup, BEEP_VOLUME, 1975},
         {csWait, 54},
@@ -240,6 +246,14 @@ const BeepChunk_t bsqBeepBeep[] = {
         {csSetup, 0},
         {csEnd}
 };
+
+const BeepChunk_t bsqRxStart[] = {
+        {csSetup, BEEP_VOLUME, 1975},
+        {csWait, 999},
+        {csSetup, 0},
+        {csEnd}
+};
+
 #endif
 
 #endif /* SEQUENCES_H_ */
