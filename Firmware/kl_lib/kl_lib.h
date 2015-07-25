@@ -92,6 +92,11 @@ typedef void (*ftVoidPVoidLen)(void*p, uint32_t Len);
 #define DMA_PRIORITY_VERYHIGH   STM32_DMA_CR_PL(0b11)
 
 namespace Convert { // ============== Conversion operations ====================
+union DWordBytes_t {
+    uint32_t DWord;
+    uint8_t b[4];
+};
+
 void U16ToArrAsBE(uint8_t *PArr, uint16_t N);
 void U32ToArrAsBE(uint8_t *PArr, uint32_t N);
 uint16_t ArrToU16AsBE(uint8_t *PArr);

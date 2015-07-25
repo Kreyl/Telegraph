@@ -9,11 +9,6 @@
 #include "evt_mask.h"
 #include "uart.h"
 
-union DWordBytes_t {
-    uint8_t b[4];
-    uint32_t DWord;
-};
-
 #define TRDT        5  // AHB clock = 48, => TRDT = 4 * (48/48) +1
 
 // Ep0 size bits
@@ -642,7 +637,7 @@ void Ep_t::QueueToFifo() {
     if(n > EpCfg[Indx].InMaxsize) n = EpCfg[Indx].InMaxsize;
     // Fill from queue
     volatile uint32_t *pDst = OTG_FS->FIFO[Indx];
-    DWordBytes_t Src;
+    Convert::DWordBytes_t Src;
     n = (n + 3) / 4;
     while(n > 0) {
         Src.b[0] = chOQGetI(PInQueue);

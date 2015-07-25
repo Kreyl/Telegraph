@@ -15,11 +15,13 @@
 #include "usb_uart.h"
 #include "beeper.h"
 #include "Sequences.h"
+#include "motor.h"
 
 App_t App;
 Beeper_t Beeper;
 PinOutputPushPull_t Line1TxPin(GPIOB, 4);
 Settings_t Settings;
+Motor_t Motor;
 
 #if 1 // ============= Timers ===================
 #define StartReportTmr()    chVTStartIfNotStarted(&App.ITmrRxReport, MS2ST(RX_REPORT_PERIOD_MS), EVTMSK_RX_REPORT)
@@ -45,11 +47,11 @@ int main() {
     // ==== Setup clock ====
     Clk.UpdateFreqValues();
     uint8_t ClkResult = FAILURE;
-    Clk.SetupFlashLatency(12);  // Setup Flash Latency for clock in MHz
+    Clk.SetupFlashLatency(48);  // Setup Flash Latency for clock in MHz
     // 12 MHz/6 = 2; 2*192 = 384; 384/8 = 48 (preAHB divider); 384/8 = 48 (USB clock)
     Clk.SetupPLLDividers(6, 192, pllSysDiv8, 8);
     // 48/4 = 12 MHz core clock. APB1 & APB2 clock derive on AHB clock
-    Clk.SetupBusDividers(ahbDiv4, apbDiv1, apbDiv1);
+    Clk.SetupBusDividers(ahbDiv1, apbDiv4, apbDiv4);
     if((ClkResult = Clk.SwitchToPLL()) == 0) Clk.HSIDisable();
     Clk.UpdateFreqValues();
 
@@ -60,7 +62,8 @@ int main() {
     // ==== Init Hard & Soft ====
     App.InitThread();
     Uart.Init(115200);
-    Uart.Printf("\r%S_%S   AHBfreq=%uMHz", APP_NAME, APP_VERSION, Clk.AHBFreqHz/1000000);
+    Uart.Printf("\r%S_%S", APP_NAME, APP_VERSION);
+    Clk.PrintFreqs();
     // Report problem with clock if any
     if(ClkResult) Uart.Printf("Clock failure\r");
 
@@ -74,6 +77,8 @@ int main() {
 
     // Timers
 //    chVTSet(&App.ITmrRxReport, MS2ST(RX_REPORT_PERIOD_MS), TmrReportCallback, nullptr);
+
+    Motor.Init();
 
     Beeper.Init();
     Beeper.StartSequence(bsqBeepBeep);
@@ -113,10 +118,10 @@ void App_t::ITask() {
 
 #if USB_ENABLED // ==== USB connection ====
         if(EvtMsk & EVTMSK_USB_CONNECTED) {
-            chSysLock();
-            Clk.SetFreq48Mhz();
-            Clk.InitSysTick();
-            chSysUnlock();
+//            chSysLock();
+//            Clk.SetFreq48Mhz();
+//            Clk.InitSysTick();
+//            chSysUnlock();
             Usb.Init();
             UsbUart.Init();
             chThdSleepMilliseconds(540);
@@ -127,10 +132,10 @@ void App_t::ITask() {
         }
         if(EvtMsk & EVTMSK_USB_DISCONNECTED) {
             Usb.Shutdown();
-            chSysLock();
-            Clk.SetFreq12Mhz();
-            Clk.InitSysTick();
-            chSysUnlock();
+//            chSysLock();
+//            Clk.SetFreq12Mhz();
+//            Clk.InitSysTick();
+//            chSysUnlock();
             Uart.Printf("\rUsb disconnected, AHB freq=%uMHz", Clk.AHBFreqHz/1000000);
         }
         if(EvtMsk & EVTMSK_USB_DATA_OUT) {
