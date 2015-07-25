@@ -19,12 +19,16 @@
 
 #define USB_ENABLED TRUE
 
+// Pins
+#define ECHO_GPIO   GPIOC
+#define ECHO_PIN    12
+#define ECHO_ON()   PinIsSet(ECHO_GPIO, ECHO_PIN)
 
 void TmrGeneralCallback(void *p);
 
-// ==== Line RX ====
-#define RX_MIN_DURTN_MS     27
-#define RX_REPORT_EVERY_MS  360
+// ==== RX ====
+#define RX_MIN_DURTN_MS         27
+#define RX_REPORT_PERIOD_MS     360
 struct DotSpace_t {
     uint32_t Dot, Space;
 };
@@ -38,19 +42,22 @@ private:
 public:
     void OnShort() {
         uint32_t Duration = chTimeNow() - ITime;
-        ITime = chTimeNow();
-        if(Duration > RX_MIN_DURTN_MS) DS.Space = Duration;
+        if(Duration > RX_MIN_DURTN_MS) {
+            ITime = chTimeNow();
+            DS.Space = Duration;
+        }
     }
     void OnRelease() {
         uint32_t Duration = chTimeNow() - ITime;
 //        Uart.Printf("\rt=%u; it=%u; d=%u", chTimeNow(), ITime, Duration);
-        ITime = chTimeNow();
         if(Duration > RX_MIN_DURTN_MS) {
+            ITime = chTimeNow();
             DS.Dot = Duration;
             DotBuf.Put(&DS);
         }
     }
     uint8_t Get(DotSpace_t *p) { return DotBuf.Get(p); }
+    void    Put(DotSpace_t *p) {        DotBuf.Put(p); }
 };
 
 struct Settings_t {

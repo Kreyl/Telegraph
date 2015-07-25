@@ -38,7 +38,7 @@ public:
         }
         else return FAILURE;
     }
-    void Ack(int32_t Result) { Printf("Ack %d\r\n", Result); }
+    void Ack(int32_t Result) { Printf("\r\nAck %d\r\n", Result); }
     void Printf(const char *format, ...);
     ProcessDataResult_t ProcessOutData();
 };

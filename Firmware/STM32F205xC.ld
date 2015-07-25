@@ -1,41 +1,29 @@
 /*
-    ChibiOS/RT - Copyright (C) 2006,2007,2008,2009,2010,
-                 2011,2012,2013 Giovanni Di Sirio.
+    ChibiOS/RT - Copyright (C) 2006-2013 Giovanni Di Sirio
 
-    This file is part of ChibiOS/RT.
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    ChibiOS/RT is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or
-    (at your option) any later version.
+        http://www.apache.org/licenses/LICENSE-2.0
 
-    ChibiOS/RT is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-                                      ---
-
-    A special exception to the GPL can be applied should you wish to distribute
-    a combined work that includes ChibiOS/RT, without being obliged to provide
-    the source code for any proprietary components. See the file exception.txt
-    for full details of how and when the exception can be applied.
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 */
 
 /*
- * ST32F205xB memory setup.
- * MainStackSz = 8192 bytes
+ * ST32F205xC memory setup.
  */
-__main_stack_size__     = 0x2000; 
-__process_stack_size__  = 0x0800;
+__main_stack_size__     = 0x0400;
+__process_stack_size__  = 0x0400;
 
 MEMORY
 {
-    flash : org = 0x08000000, len = 128k
-    ram : org = 0x20000000, len = 64k
+    flash : org = 0x08000000, len = 256k
+    ram : org = 0x20000000, len = 96k
 }
 
 __ram_start__           = ORIGIN(ram);
@@ -108,6 +96,7 @@ SECTIONS
         . = ALIGN(8);
     } > flash
 
+    . = ALIGN(4);
     _etext = .;
     _textdata = _etext;
 
@@ -126,27 +115,23 @@ SECTIONS
         __main_thread_stack_end__ = .;
     } > ram
 
-    .data :
+    .data ALIGN(4) : ALIGN(4)
     {
         . = ALIGN(4);
         PROVIDE(_data = .);
         *(.data)
-        . = ALIGN(4);
         *(.data.*)
-        . = ALIGN(4);
         *(.ramtext)
         . = ALIGN(4);
         PROVIDE(_edata = .);
     } > ram AT > flash
 
-    .bss :
+    .bss ALIGN(4) : ALIGN(4)
     {
         . = ALIGN(4);
         PROVIDE(_bss_start = .);
         *(.bss)
-        . = ALIGN(4);
         *(.bss.*)
-        . = ALIGN(4);
         *(COMMON)
         . = ALIGN(4);
         PROVIDE(_bss_end = .);

@@ -650,7 +650,7 @@ void Ep_t::QueueToFifo() {
         Src.b[2] = chOQGetI(PInQueue);
         Src.b[3] = chOQGetI(PInQueue);
         n--;
-//        Uart.PrintfI("\r%A", Src.b, 4, ' ');
+//        Uart.PrintfI("\r q2f %A", Src.b, 4, ' ');
         *pDst = Src.DWord;
         if(chOQIsEmptyI(PInQueue)) {
             DisableInFifoEmptyIRQ();

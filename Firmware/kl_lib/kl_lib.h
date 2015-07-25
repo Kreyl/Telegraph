@@ -122,6 +122,12 @@ void TmrGeneralCallback(void *p) {
 }
  */
 
+static inline void chVTStart(VirtualTimer *vtp, systime_t time, eventmask_t Evt) {
+    chSysLock();
+    chVTSetI(vtp, time, TmrGeneralCallback, (void*)Evt);
+    chSysUnlock();
+}
+
 static inline void chVTRestart(VirtualTimer *vtp, systime_t time, vtfunc_t vtfunc, void *par) {
     chSysLock();
     if(chVTIsArmedI(vtp)) chVTResetI(vtp);
@@ -164,9 +170,10 @@ static inline void Delay_ms(uint32_t Ams) {
 }
 #endif
 
-#if 0 // ======================= Power and backup unit =========================
+#if 1 // ======================= Power and backup unit =========================
 #define REBOOT()                SCB_AIRCR = (AIRCR_VECTKEY | 0x04)
 
+#ifdef STM32F2XX
 static inline void EnableBackupAccess() {
     rccEnablePWRInterface(FALSE);
     PWR->CR |= PWR_CR_DBP;
@@ -186,6 +193,7 @@ static inline void WriteBackupRegister(uint32_t RegN, uint32_t Data) {
     volatile uint32_t tmp = RTC_BASE + 0x50 + (RegN * 4);
     *(volatile uint32_t *)tmp = Data;
 }
+#endif // STM32F2xx
 #endif
 
 #if 1 // ============================== Timers =================================

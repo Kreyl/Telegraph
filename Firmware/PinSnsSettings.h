@@ -24,7 +24,7 @@
 
 #define SIMPLESENSORS_ENABLED   TRUE
 
-#define SNS_POLL_PERIOD_MS      10
+#define SNS_POLL_PERIOD_MS      5
 
 // Possible states of pin
 enum PinSnsState_t {pssLo, pssHi, pssRising, pssFalling};

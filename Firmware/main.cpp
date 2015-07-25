@@ -21,12 +21,21 @@ Beeper_t Beeper;
 PinOutputPushPull_t Line1TxPin(GPIOB, 4);
 Settings_t Settings;
 
+#if 1 // ============= Timers ===================
+#define StartReportTmr()    chVTStartIfNotStarted(&App.ITmrRxReport, MS2ST(RX_REPORT_PERIOD_MS), EVTMSK_RX_REPORT)
 // Universal VirtualTimer callback
 void TmrGeneralCallback(void *p) {
     chSysLockFromIsr();
     App.SignalEvtI((eventmask_t)p);
     chSysUnlockFromIsr();
 }
+//void TmrReportCallback(void *p) {
+//    chSysLockFromIsr();
+//    App.SignalEvtI(EVTMSK_RX_REPORT);
+//    chVTSetI(&App.ITmrRxReport, MS2ST(RX_REPORT_PERIOD_MS), TmrReportCallback, nullptr);
+//    chSysUnlockFromIsr();
+//}
+#endif
 
 static WORKING_AREA(waTxThread, 128);
 __attribute__((__noreturn__))
@@ -56,11 +65,15 @@ int main() {
     if(ClkResult) Uart.Printf("Clock failure\r");
 
     PinSensors.Init();
+    PinSetupIn(ECHO_GPIO, ECHO_PIN, pudPullUp); // Echo on/off
     Line1TxPin.Init();
     Line1TxPin.SetLo();
 
     // TX thread
     App.PTxThread = chThdCreateStatic(waTxThread, sizeof(waTxThread), LOWPRIO, (tfunc_t)TxThread, NULL);
+
+    // Timers
+//    chVTSet(&App.ITmrRxReport, MS2ST(RX_REPORT_PERIOD_MS), TmrReportCallback, nullptr);
 
     Beeper.Init();
     Beeper.StartSequence(bsqBeepBeep);
@@ -80,14 +93,15 @@ void App_t::ITask() {
             DotSpace_t DS;
             // Line RX
             while(LineRx1.Get(&DS) == OK) {
-                //UsbUart.Printf("RX=%u\r\n", Duration);
+                UsbUart.Printf("\r#RX %u %u", DS.Space, DS.Dot);
                 Uart.Printf("\r#RX %u %u", DS.Space, DS.Dot);
             }
             // Key RX
             while(KeyRx.Get(&DS) == OK) {
-                //UsbUart.Printf("RX=%u\r\n", Duration);
-                Uart.Printf("\r#RX %u %u", DS.Space, DS.Dot);
+                UsbUart.Printf("\r#RX %u %u", DS.Space, DS.Dot);
+//                Uart.Printf("\r#RX %u %u", DS.Space, DS.Dot);
             }
+            chThdSleepMicroseconds(108);
         }
 
 #if 1   // ==== Uart cmd ====
@@ -213,13 +227,12 @@ void ProcessKey(PinSnsState_t *PState, uint32_t Len) {
     if(*PState == pssFalling) { // Key pressed
 //        Uart.Printf("\rKey Press");
         App.KeyRx.OnShort();
-        Beeper.Beep(1975, 1);
+        Beeper.Beep(1975, BEEP_VOLUME);
     }
     else if(*PState == pssRising) { // Key released
-//        Uart.Printf("\rKey Release");
         App.KeyRx.OnRelease();
-        Beeper.Beep(1975, 0);
-        chVTStartIfNotStarted(&App.ITmrRxReport, MS2ST(RX_REPORT_EVERY_MS), EVTMSK_RX_REPORT);
+        Beeper.Off();
+        StartReportTmr();
     }
 }
 
@@ -227,11 +240,13 @@ void ProcessLine(PinSnsState_t *PState, uint32_t Len) {
     if(PState[0] == pssFalling) { // Key pressed
 //        Uart.Printf("\rLineShort");
         App.LineRx1.OnShort();
+        Beeper.Beep(999, BEEP_VOLUME);
     }
     else if(PState[0] == pssRising) { // Key released
-//        Uart.Printf("\rLine Release");
+//        Uart.Printf("\rLR");
         App.LineRx1.OnRelease();
-        chVTStartIfNotStarted(&App.ITmrRxReport, MS2ST(RX_REPORT_EVERY_MS), EVTMSK_RX_REPORT);
+        Beeper.Off();
+        StartReportTmr();
     }
 }
 
@@ -253,6 +268,9 @@ static void TxThread(void *arg) {
                 Beeper.Beep(1500, 1);
                 if(DS.Dot != 0) chThdSleepMilliseconds(DS.Dot);
                 Beeper.Off();
+                // Send back to USB as LineSignal
+                App.LineRx1.Put(&DS);
+                StartReportTmr();   // Signal to USB
             }
         } // if tx usb
     } // while true
