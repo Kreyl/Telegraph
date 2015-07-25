@@ -29,6 +29,15 @@
 
 #endif
 
+#if 1 // ========= Registers etc. ===========
+// Registers
+#define L6470_REG_ACCELERATION  0x05
+#define L6470_REG_DECELERATION  0x06
+#define L6470_REG_CONFIG        0x18
+#define L6470_REG_STATUS        0x19
+
+#endif
+
 enum Dir_t {dirForward = 1, dirReverse = 0};
 
 class L6470_t {
@@ -45,20 +54,24 @@ private:
     uint16_t GetStatus();
     void GetParam(uint8_t Addr, uint8_t *PParam1);
     void GetParam(uint8_t Addr, uint8_t *PParam1, uint8_t *PParam2);
+    void SetParam(uint8_t Addr, uint16_t Value);
+    void Cmd(uint8_t ACmd); // Single-byte cmd
 protected:
     void ResetOn()  { PinClear(M_AUX_GPIO, M_STBY_RST); }
     void ResetOff() { PinSet  (M_AUX_GPIO, M_STBY_RST); }
     bool IsBusy()   { return !PinIsSet(M_AUX_GPIO, M_BUSY_SYNC1); }
     bool IsFlagOn() { return !PinIsSet(M_AUX_GPIO, M_FLAG1); }
-    void Run(Dir_t Dir, uint32_t Speed);
 public:
     void Init();
+    // Motion
+    void Run(Dir_t Dir, uint32_t Speed);
+    // Stop
+    void StopSoftAndHold() { Cmd(0b10110000); } // SoftStop
+    void StopSoftAndHiZ()  { Cmd(0b10100000); } // SoftHiZ
+    // Acceleration
+    void SetAcceleration(uint16_t Value) { SetParam(L6470_REG_ACCELERATION, Value); }
+    void SetDeceleration(uint16_t Value) { SetParam(L6470_REG_DECELERATION, Value); }
 };
 
-#if 1 // ========= Registers etc. ===========
-// Registers
-#define L6470_REG_CONFIG    0x18
-#define L6470_REG_STATUS    0x19
 
-#endif
 #endif /* L6470_H_ */

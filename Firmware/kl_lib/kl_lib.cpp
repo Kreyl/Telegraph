@@ -121,7 +121,16 @@ void Timer_t::SetUpdateFrequency(uint32_t FreqHz) {
     ITmr->PSC = div;
 //    Uart.Printf("\r  FMax=%u; div=%u", UpdFreqMax, div);
 }
+#endif
 
+#if 1 // ========================== Virtual Timers =============================
+void chVTRestart(VirtualTimer *vtp, systime_t time, eventmask_t Evt) {
+    chSysLock();
+//    Uart.PrintfI("\r Restart t=%u msk=%X Armed=%u", time, Evt, chVTIsArmedI(vtp));
+    if(chVTIsArmedI(vtp)) chVTResetI(vtp);
+    chVTSetI(vtp, time, TmrGeneralCallback, (void*)Evt);
+    chSysUnlock();
+}
 #endif
 
 #if CH_DBG_ENABLED // ========================= DEBUG ==========================

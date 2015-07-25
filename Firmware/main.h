@@ -29,6 +29,9 @@ void TmrGeneralCallback(void *p);
 // ==== RX ====
 #define RX_MIN_DURTN_MS         27
 #define RX_REPORT_PERIOD_MS     360
+#define RX_TIMEOUT_MS           999
+
+#if 1 // === Rx Buf ====
 struct DotSpace_t {
     uint32_t Dot, Space;
 };
@@ -59,6 +62,7 @@ public:
     uint8_t Get(DotSpace_t *p) { return DotBuf.Get(p); }
     void    Put(DotSpace_t *p) {        DotBuf.Put(p); }
 };
+#endif
 
 struct Settings_t {
     int32_t BeepInt=0;
@@ -75,7 +79,7 @@ private:
 
 public:
     void OnUsbCmd();
-    VirtualTimer ITmrRxReport;
+    VirtualTimer TmrRxReport, TmrRxTimeout;
     RxBuf_t<2007> LineRx1;
     RxBuf_t<207> KeyRx;
     CircBuf_t<DotSpace_t, 2007> UsbRx;

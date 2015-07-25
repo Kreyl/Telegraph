@@ -14,6 +14,7 @@
 #define EVTMSK_UART_NEW_CMD     EVENT_MASK(1)
 // RX
 #define EVTMSK_RX_REPORT        EVENT_MASK(5)
+#define EVTMSK_RX_TIMEOUT       EVENT_MASK(6)
 // TX
 #define EVTMSK_TX_USB           EVENT_MASK(10)
 // USB

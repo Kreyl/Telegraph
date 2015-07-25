@@ -97,6 +97,11 @@ union DWordBytes_t {
     uint8_t b[4];
 };
 
+union WordBytes_t {
+    uint16_t Word;
+    uint8_t b[2];
+} __attribute__((packed));
+
 void U16ToArrAsBE(uint8_t *PArr, uint16_t N);
 void U32ToArrAsBE(uint8_t *PArr, uint32_t N);
 uint16_t ArrToU16AsBE(uint8_t *PArr);
@@ -139,12 +144,7 @@ static inline void chVTRestart(VirtualTimer *vtp, systime_t time, vtfunc_t vtfun
     chVTSetI(vtp, time, vtfunc, par);
     chSysUnlock();
 }
-static inline void chVTRestart(VirtualTimer *vtp, systime_t time, eventmask_t Evt) {
-    chSysLock();
-    if(chVTIsArmedI(vtp)) chVTResetI(vtp);
-    chVTSetI(vtp, time, TmrGeneralCallback, (void*)Evt);
-    chSysUnlock();
-}
+void chVTRestart(VirtualTimer *vtp, systime_t time, eventmask_t Evt);
 
 static inline void chVTStartIfNotStarted(VirtualTimer *vtp, systime_t time, eventmask_t Evt) {
     chSysLock();

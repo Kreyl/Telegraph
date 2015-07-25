@@ -10,10 +10,25 @@
 
 #include "L6470.h"
 
-class Motor_t : public L6470_t {
+#define MOTOR_SPEED     10000
+#define MOTOR_ACC       63
+
+class Motor_t : private L6470_t {
 public:
-    void Run();
-    void Stop();
+    bool IsRunning = false;
+    void Init() {
+        L6470_t::Init();
+        SetAcceleration(MOTOR_ACC);
+        SetDeceleration(MOTOR_ACC);
+    }
+    void Run() {
+        L6470_t::Run(dirForward, MOTOR_SPEED);
+        IsRunning = true;
+    }
+    void Stop() {
+        L6470_t::StopSoftAndHiZ();
+        IsRunning = false;
+    }
 };
 
 

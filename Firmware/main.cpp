@@ -24,7 +24,7 @@ Settings_t Settings;
 Motor_t Motor;
 
 #if 1 // ============= Timers ===================
-#define StartReportTmr()    chVTStartIfNotStarted(&App.ITmrRxReport, MS2ST(RX_REPORT_PERIOD_MS), EVTMSK_RX_REPORT)
+#define StartReportTmr()    chVTStartIfNotStarted(&App.TmrRxReport, MS2ST(RX_REPORT_PERIOD_MS), EVTMSK_RX_REPORT)
 // Universal VirtualTimer callback
 void TmrGeneralCallback(void *p) {
     chSysLockFromIsr();
@@ -63,7 +63,7 @@ int main() {
     App.InitThread();
     Uart.Init(115200);
     Uart.Printf("\r%S_%S", APP_NAME, APP_VERSION);
-    Clk.PrintFreqs();
+//    Clk.PrintFreqs();
     // Report problem with clock if any
     if(ClkResult) Uart.Printf("Clock failure\r");
 
@@ -91,23 +91,27 @@ int main() {
 __attribute__ ((__noreturn__))
 void App_t::ITask() {
     while(true) {
-        __attribute__((unused))
+//        __attribute__((unused))
         uint32_t EvtMsk = chEvtWaitAny(ALL_EVENTS);
 
         if(EvtMsk & EVTMSK_RX_REPORT) {
             DotSpace_t DS;
             // Line RX
             while(LineRx1.Get(&DS) == OK) {
-                UsbUart.Printf("\r#RX %u %u", DS.Space, DS.Dot);
+//                UsbUart.Printf("\r#RX %u %u", DS.Space, DS.Dot);
                 Uart.Printf("\r#RX %u %u", DS.Space, DS.Dot);
             }
             // Key RX
             while(KeyRx.Get(&DS) == OK) {
-                UsbUart.Printf("\r#RX %u %u", DS.Space, DS.Dot);
+//                UsbUart.Printf("\r#RX %u %u", DS.Space, DS.Dot);
 //                Uart.Printf("\r#RX %u %u", DS.Space, DS.Dot);
             }
-            chThdSleepMicroseconds(108);
-        }
+        } // EVTMSK_RX_REPORT
+
+        if(EvtMsk & EVTMSK_RX_TIMEOUT) {
+//            Uart.Printf("\rStop");
+            Motor.Stop();
+        } // EVTMSK_RX_TIMEOUT
 
 #if 1   // ==== Uart cmd ====
         if(EvtMsk & EVTMSK_UART_NEW_CMD) {
@@ -233,11 +237,16 @@ void ProcessKey(PinSnsState_t *PState, uint32_t Len) {
 //        Uart.Printf("\rKey Press");
         App.KeyRx.OnShort();
         Beeper.Beep(1975, BEEP_VOLUME);
+        if(!Motor.IsRunning) {
+            Motor.Run();
+        }
     }
     else if(*PState == pssRising) { // Key released
+//        Uart.Printf("\rKey Rel");
         App.KeyRx.OnRelease();
         Beeper.Off();
         StartReportTmr();
+        chVTRestart(&App.TmrRxTimeout, MS2ST(RX_TIMEOUT_MS), EVTMSK_RX_TIMEOUT);
     }
 }
 

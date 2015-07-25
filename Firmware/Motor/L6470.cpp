@@ -23,17 +23,11 @@ void L6470_t::Init() {
     // ==== SPI ==== MSB first, master, ClkLowIdle, FirstEdge, Baudrate=...
     ISpi.Setup(M_SPI, boMSB, cpolIdleLow, cphaFirstEdge, sbFdiv8);
     ISpi.Enable();
-    // ==== Init IC ====
+    // ==== Reset IC ====
     ResetOn();
     chThdSleepMilliseconds(7);
     ResetOff();
     chThdSleepMilliseconds(27);
-
-    uint16_t Status = GetStatus();
-    Uart.Printf("\rSt=%04X", Status);
-
-    Run(dirForward, 10000);
-
 }
 
 #if 1 // ============================ Motion ===================================
@@ -55,11 +49,29 @@ void L6470_t::Run(Dir_t Dir, uint32_t Speed) {
 
 
 #if 1 // ======================= Params, Read/Write ============================
+void L6470_t::Cmd(uint8_t ACmd) {
+    CsLo();
+    ISpi.ReadWriteByte(ACmd);
+    CsHi();
+}
+
 void L6470_t::GetParam(uint8_t Addr, uint8_t *PParam1) {
     CsLo();
     ISpi.ReadWriteByte(0b00100000 | Addr);
     CSHiLo();
     *PParam1 = ISpi.ReadWriteByte(0);
+    CsHi();
+}
+
+void L6470_t::SetParam(uint8_t Addr, uint16_t Value) {
+    Convert::WordBytes_t wb;
+    wb.Word = Value;
+    CsLo();
+    ISpi.ReadWriteByte(Addr);
+    CSHiLo();
+    ISpi.ReadWriteByte(wb.b[1]);
+    CSHiLo();
+    ISpi.ReadWriteByte(wb.b[0]);
     CsHi();
 }
 
