@@ -28,6 +28,7 @@ void L6470_t::Init() {
     chThdSleepMilliseconds(7);
     ResetOff();
     chThdSleepMilliseconds(27);
+    GetStatus();
 }
 
 #if 1 // ============================ Motion ===================================

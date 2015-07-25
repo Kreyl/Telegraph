@@ -237,9 +237,8 @@ void ProcessKey(PinSnsState_t *PState, uint32_t Len) {
 //        Uart.Printf("\rKey Press");
         App.KeyRx.OnShort();
         Beeper.Beep(1975, BEEP_VOLUME);
-        if(!Motor.IsRunning) {
-            Motor.Run();
-        }
+        if(Motor.IsRunning) { chVTReset(&App.TmrRxTimeout); }
+        else Motor.Run();
     }
     else if(*PState == pssRising) { // Key released
 //        Uart.Printf("\rKey Rel");

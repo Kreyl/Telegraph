@@ -11,7 +11,7 @@
 #include "L6470.h"
 
 #define MOTOR_SPEED     10000
-#define MOTOR_ACC       63
+#define MOTOR_ACC       60
 
 class Motor_t : private L6470_t {
 public:
