@@ -128,7 +128,7 @@ void chVTRestart(VirtualTimer *vtp, systime_t time, eventmask_t Evt) {
     chSysLock();
 //    Uart.PrintfI("\r Restart t=%u msk=%X Armed=%u", time, Evt, chVTIsArmedI(vtp));
     if(chVTIsArmedI(vtp)) chVTResetI(vtp);
-    chVTSetI(vtp, time, TmrGeneralCallback, (void*)Evt);
+    chVTSetI(vtp, time, TmrOneShotCallback, (void*)Evt);
     chSysUnlock();
 }
 #endif

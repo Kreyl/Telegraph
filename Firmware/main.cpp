@@ -14,32 +14,35 @@
 #include "beeper.h"
 #include "Sequences.h"
 #include "motor.h"
+#include "led.h"
 
 App_t App;
 Beeper_t Beeper;
-PinOutputPushPull_t Line1TxPin(GPIOB, 4);
-PinOutputPushPull_t Magnet(GPIOA, 10);
-PinInput_t<pudPullUp> EchoPin(GPIOC, 12);
+const PinOutput_t Line1TxPin = {GPIOB, 4, omPushPull};
+const PinOutput_t Magnet = {GPIOA, 10, omPushPull};
+const PinInput_t EchoPin = {GPIOC, 12, pudPullUp};
+const LedOnOff_t Led1 = {GPIOA, 2};
+const LedOnOff_t LedSrcPwr = {GPIOC, 15};
+const LedOnOff_t LedBtPwr = {GPIOB, 1};
+const LedOnOff_t LedBtPwrLo = {GPIOB, 2};
 Motor_t Motor;
+PeriodicTmr_t TmrCheck = {MS2ST(702), EVTMSK_CHECK};
 
 #if 1 // ============= Timers ===================
-// Universal VirtualTimer callback
-void TmrGeneralCallback(void *p) {
+// Universal VirtualTimer one-shot callback
+void TmrOneShotCallback(void *p) {
     chSysLockFromIsr();
     App.SignalEvtI((eventmask_t)p);
     chSysUnlockFromIsr();
 }
+void TmrPeriodicCallback(void *p) { ((PeriodicTmr_t*)p)->CallbackHandler(); }
 #endif
 
 int main() {
-    // ==== Setup clock ====
+    // ==== Setup clock ==== Quartz 12MHz
     uint8_t ClkResult = FAILURE;
     Clk.SetupFlashLatency(12);  // Setup Flash Latency for clock in MHz
-    // 12 MHz/6 = 2; 2*192 = 384; 384/8 = 48 (preAHB divider); 384/8 = 48 (USB clock)
-//    Clk.SetupPLLDividers(6, 192, pllSysDiv8, 8);
-    // 48/4 = 12 MHz core clock. APB1 & APB2 clock derive on AHB clock
     Clk.SetupBusDividers(ahbDiv1, apbDiv1, apbDiv1);
-//    if((ClkResult = Clk.SwitchToPLL()) == 0) Clk.HSIDisable();
     if((ClkResult = Clk.SwitchToHSE()) == OK) Clk.HSIDisable();
     Clk.UpdateFreqValues();
 
@@ -57,19 +60,26 @@ int main() {
 
     PinSensors.Init();
     PinSetupIn(ECHO_GPIO, ECHO_PIN, pudPullUp); // Echo on/off
+
+    // Pins
     Line1TxPin.Init();
     Line1TxPin.SetLo();
-
     Magnet.Init();
     Magnet.SetLo();
-
     EchoPin.Init();
+    Led1.Init();
+    LedSrcPwr.Init();
+    LedBtPwr.Init();
+    LedBtPwrLo.Init();
 
+    // Timers
+    TmrCheck.PThread = chThdSelf();
+    TmrCheck.Start();
+
+    chThdSleepMilliseconds(540);    // Let power to stabilize
     Motor.Init();
-
     Beeper.Init();
     Beeper.StartSequence(bsqBeepBeep);
-    chThdSleepMilliseconds(720);
 
     // ==== Main cycle ====
     App.ITask();
@@ -81,13 +91,17 @@ void App_t::ITask() {
         uint32_t EvtMsk = chEvtWaitAny(ALL_EVENTS);
 
         if(EvtMsk & EVTMSK_RX_TIMEOUT) {
-            Uart.Printf("\rStop");
+//            Uart.Printf("\rStop");
             Motor.Stop();
         } // EVTMSK_RX_TIMEOUT
 
         if(EvtMsk & EVTMSK_UART_NEW_CMD) {
             OnUartCmd(&Uart);
             Uart.SignalCmdProcessed();
+        }
+
+        if(EvtMsk & EVTMSK_CHECK) {
+            Uart.Printf("\rCheck");
         }
     } // while true
 }

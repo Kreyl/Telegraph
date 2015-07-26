@@ -5,27 +5,35 @@
  *      Author: Kreyl
  */
 
-#ifndef LED_RGB_H_
-#define LED_RGB_H_
+#ifndef LED_H_
+#define LED_H_
 
 #include "hal.h"
 #include "color.h"
 #include "ChunkTypes.h"
 #include "uart.h"
+#include "kl_lib.h"
 
-#ifdef STM32F2XX
-#include "kl_lib_f2xx.h"
-#elif defined STM32L1XX_MD || defined STM32L1XX_HD
-#include <kl_lib.h>
-#endif
+#define LED_LIB_VERSION     "2015-07-26_1123"
 
 #if 1 // =========================== Common auxilary ===========================
 // TimeToWaitBeforeNextAdjustment = SmoothVar / (N+4) + 1, where N - current LED brightness.
 static inline uint32_t ICalcDelay(uint32_t CurrentBrightness, uint32_t SmoothVar) { return (uint32_t)((SmoothVar / (CurrentBrightness+4)) + 1); }
 #endif
 
-#if 1 // ========================= Single LED blinker ==========================
-#define LED_RGB_BLINKER
+#if 1 // ========================= Single LED On/Off ===========================
+class LedOnOff_t {
+public:
+    GPIO_TypeDef *PGpio;
+    uint16_t Pin;
+    void On() const { PinSet(PGpio, Pin); }
+    void Off() const { PinClear(PGpio, Pin); }
+    void Init() const { PinSetupOut(PGpio, Pin, omPushPull); }
+};
+#endif
+
+#if 0 // ========================= Single LED blinker ==========================
+#define LED_BLINKER
 
 class LedBlinker_t : public BaseSequencer_t<BaseChunk_t> {
 protected:
@@ -93,7 +101,7 @@ public:
 #endif
 
 
-#if 1 // ==================== RGB blinker (no smooth switch) ===================
+#if 0 // ==================== RGB blinker (no smooth switch) ===================
 #define LED_RGB_BLINKER
 class LedRgbBlinker_t : public BaseSequencer_t<LedRGBChunk_t> {
 protected:
@@ -121,7 +129,7 @@ public:
 };
 #endif
 
-#if 1 // ============================== LedRGB =================================
+#if 0 // ============================== LedRGB =================================
 #define LED_RGB
 #define LED_RGB_TOP_VALUE   255 // Intencity 0...255
 #define LED_RGB_INVERTED    invNotInverted
@@ -179,4 +187,4 @@ public:
 };
 #endif
 
-#endif /* LED_RGB_H_ */
+#endif /* LED_H_ */

@@ -120,9 +120,10 @@ void __attribute__ ((weak)) _init(void)  {}
 }
 #endif
 
-#if 1 // ====================== Virtual Timer ==================================
+#if 1 // ====================== Virtual Timers =================================
 // Universal VirtualTimer callback
-extern void TmrGeneralCallback(void *p);
+extern void TmrOneShotCallback(void *p);
+extern void TmrPeriodicCallback(void *p);
 /*
 // Universal VirtualTimer callback
 void TmrGeneralCallback(void *p) {
@@ -132,9 +133,30 @@ void TmrGeneralCallback(void *p) {
 }
  */
 
+class PeriodicTmr_t {
+private:
+    void StartI() { chVTSetI(&Tmr, Period, TmrPeriodicCallback, this); }
+public:
+    systime_t Period;
+    eventmask_t EvtMsk;
+    VirtualTimer Tmr;
+    Thread *PThread;
+    void Start() {
+        chSysLock();
+        StartI();
+        chSysUnlock();
+    }
+    void CallbackHandler() {    // Call it inside callback
+        chSysLockFromIsr();
+        chEvtSignalI(PThread, EvtMsk);
+        StartI();
+        chSysUnlockFromIsr();
+    }
+};
+
 static inline void chVTStart(VirtualTimer *vtp, systime_t time, eventmask_t Evt) {
     chSysLock();
-    chVTSetI(vtp, time, TmrGeneralCallback, (void*)Evt);
+    chVTSetI(vtp, time, TmrOneShotCallback, (void*)Evt);
     chSysUnlock();
 }
 
@@ -148,12 +170,12 @@ void chVTRestart(VirtualTimer *vtp, systime_t time, eventmask_t Evt);
 
 static inline void chVTStartIfNotStarted(VirtualTimer *vtp, systime_t time, eventmask_t Evt) {
     chSysLock();
-    if(!chVTIsArmedI(vtp)) chVTSetI(vtp, time, TmrGeneralCallback, (void*)Evt);
+    if(!chVTIsArmedI(vtp)) chVTSetI(vtp, time, TmrOneShotCallback, (void*)Evt);
     chSysUnlock();
 }
 
 static inline void chVTSetEvtI(VirtualTimer *vtp, systime_t time, eventmask_t Evt) {
-    chVTSetI(vtp, time, TmrGeneralCallback, (void*)Evt);
+    chVTSetI(vtp, time, TmrOneShotCallback, (void*)Evt);
 }
 #endif
 
@@ -201,7 +223,7 @@ static inline void WriteBackupRegister(uint32_t RegN, uint32_t Data) {
 #endif // STM32F2xx
 #endif
 
-#if 1 // ============================== Timers =================================
+#if 1 // =========================== HW Timers =================================
 enum TmrTrigInput_t {tiITR0=0x00, tiITR1=0x10, tiITR2=0x20, tiITR3=0x30, tiTIED=0x40, tiTI1FP1=0x50, tiTI2FP2=0x60, tiETRF=0x70};
 enum TmrMasterMode_t {mmReset=0x00, mmEnable=0x10, mmUpdate=0x20, mmComparePulse=0x30, mmCompare1=0x40, mmCompare2=0x50, mmCompare3=0x60, mmCompare4=0x70};
 enum TmrSlaveMode_t {smDisable=0, smEncoder1=1, smEncoder2=2, smEncoder3=3, smReset=4, smGated=5, smTrigger=6, smExternal=7};
@@ -394,25 +416,27 @@ static inline void PinSetupAlterFunc(
 
 #if 1 // ===================== Pin classes ========================
 // ==== On/Off output pin ====
-class PinOutputPushPull_t {
+// Example: const PinOutput_t Magnet = {GPIOA, 10, omPushPull};
+class PinOutput_t {
 public:
     GPIO_TypeDef *PGpio;
     uint16_t Pin;
+    PinOutMode_t OutMode;
     void Init() const { PinSetupOut(PGpio, Pin, omPushPull); }
-    void Set(uint8_t AValue) { if(AValue != 0) PinSet(PGpio, Pin); else PinClear(PGpio, Pin); }
-    void SetHi() { PinSet(PGpio, Pin); }
-    void SetLo() { PinClear(PGpio, Pin); }
-    PinOutputPushPull_t(GPIO_TypeDef *APGpio, uint16_t APin) : PGpio(APGpio), Pin(APin) {}
+    void Set(uint8_t AValue) const { if(AValue != 0) PinSet(PGpio, Pin); else PinClear(PGpio, Pin); }
+    void SetHi() const { PinSet(PGpio, Pin); }
+    void SetLo() const { PinClear(PGpio, Pin); }
 };
 
-template <PinPullUpDown_t PullUpDown>
+// ==== Digital Input Pin ====
+// Example: const PinInput_t EchoPin = {GPIOC, 12, pudPullUp};
 class PinInput_t {
 public:
     GPIO_TypeDef *PGpio;
     uint16_t Pin;
+    PinPullUpDown_t PullUpDown;
     void Init() const { PinSetupIn(PGpio, Pin, PullUpDown); }
     bool IsHi() const { return PinIsSet(PGpio, Pin); }
-    PinInput_t(GPIO_TypeDef *APGpio, uint16_t APin) : PGpio(APGpio), Pin(APin) {}
 };
 
 // ==== PWM output ====
