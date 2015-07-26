@@ -64,7 +64,14 @@ void L6470_t::GetParam(uint8_t Addr, uint8_t *PParam1) {
     CsHi();
 }
 
-void L6470_t::SetParam(uint8_t Addr, uint16_t Value) {
+void L6470_t::SetParam8(uint8_t Addr, uint8_t Value) {
+    CsLo();
+    ISpi.ReadWriteByte(Addr);
+    CSHiLo();
+    ISpi.ReadWriteByte(Value);
+    CsHi();
+}
+void L6470_t::SetParam16(uint8_t Addr, uint16_t Value) {
     Convert::WordBytes_t wb;
     wb.Word = Value;
     CsLo();

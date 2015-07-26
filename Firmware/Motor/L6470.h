@@ -17,6 +17,7 @@
 #define M_MISO          6
 #define M_MOSI          7
 #define M_CS            8
+#define L6470_CS_DELAY() { for(volatile uint32_t i=0; i<10; i++) __NOP(); }
 #if defined STM32F2XX
 #define M_SPI_AF        AF5
 #endif
@@ -33,28 +34,32 @@
 // Registers
 #define L6470_REG_ACCELERATION  0x05
 #define L6470_REG_DECELERATION  0x06
+#define L6470_REG_STEP_MODE     0x16
 #define L6470_REG_CONFIG        0x18
 #define L6470_REG_STATUS        0x19
 
 #endif
 
 enum Dir_t {dirForward = 1, dirReverse = 0};
+// Step mode: how many microsteps in one step
+enum StepMode_t {smFull=0, sm2=1, sm4=2, sm8=3, sm16=4, sm32=5, sm64=6, sm128=7};
 
 class L6470_t {
 private:
     Spi_t ISpi;
-    void CsHi() { PinSet(M_SPI_GPIO, M_CS); }
+    void CsHi() { PinSet(M_SPI_GPIO, M_CS); L6470_CS_DELAY(); }
     void CsLo() { PinClear(M_SPI_GPIO, M_CS); }
     void CSHiLo() {
         PinSet(M_SPI_GPIO, M_CS);
-        for(volatile uint32_t i=0; i<10; i++) __NOP();
+        L6470_CS_DELAY();
         PinClear(M_SPI_GPIO, M_CS);
     }
     // Commands
     uint16_t GetStatus();
     void GetParam(uint8_t Addr, uint8_t *PParam1);
     void GetParam(uint8_t Addr, uint8_t *PParam1, uint8_t *PParam2);
-    void SetParam(uint8_t Addr, uint16_t Value);
+    void SetParam8(uint8_t Addr, uint8_t Value);
+    void SetParam16(uint8_t Addr, uint16_t Value);
     void Cmd(uint8_t ACmd); // Single-byte cmd
 protected:
     void ResetOn()  { PinClear(M_AUX_GPIO, M_STBY_RST); }
@@ -68,9 +73,11 @@ public:
     // Stop
     void StopSoftAndHold() { Cmd(0b10110000); } // SoftStop
     void StopSoftAndHiZ()  { Cmd(0b10100000); } // SoftHiZ
-    // Acceleration
-    void SetAcceleration(uint16_t Value) { SetParam(L6470_REG_ACCELERATION, Value); }
-    void SetDeceleration(uint16_t Value) { SetParam(L6470_REG_DECELERATION, Value); }
+    // Mode of operation
+    void SetConfig(uint16_t Cfg) { SetParam16(L6470_REG_CONFIG, Cfg); }
+    void SetStepMode(StepMode_t StepMode) { SetParam8(L6470_REG_STEP_MODE, (uint8_t)StepMode); }
+    void SetAcceleration(uint16_t Value) { SetParam16(L6470_REG_ACCELERATION, Value); }
+    void SetDeceleration(uint16_t Value) { SetParam16(L6470_REG_DECELERATION, Value); }
 };
 
 

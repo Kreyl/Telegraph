@@ -22,6 +22,7 @@ Beeper_t Beeper;
 PinOutputPushPull_t Line1TxPin(GPIOB, 4);
 Settings_t Settings;
 Motor_t Motor;
+PinOutputPushPull_t Magnet(GPIOA, 10);
 
 #if 1 // ============= Timers ===================
 #define StartReportTmr()    chVTStartIfNotStarted(&App.TmrRxReport, MS2ST(RX_REPORT_PERIOD_MS), EVTMSK_RX_REPORT)
@@ -72,6 +73,9 @@ int main() {
     Line1TxPin.Init();
     Line1TxPin.SetLo();
 
+    Magnet.Init();
+    Magnet.SetLo();
+
     // TX thread
     App.PTxThread = chThdCreateStatic(waTxThread, sizeof(waTxThread), LOWPRIO, (tfunc_t)TxThread, NULL);
 
@@ -109,7 +113,7 @@ void App_t::ITask() {
         } // EVTMSK_RX_REPORT
 
         if(EvtMsk & EVTMSK_RX_TIMEOUT) {
-//            Uart.Printf("\rStop");
+            Uart.Printf("\rStop");
             Motor.Stop();
         } // EVTMSK_RX_TIMEOUT
 
@@ -239,6 +243,7 @@ void ProcessKey(PinSnsState_t *PState, uint32_t Len) {
         Beeper.Beep(1975, BEEP_VOLUME);
         if(Motor.IsRunning) { chVTReset(&App.TmrRxTimeout); }
         else Motor.Run();
+        Magnet.SetHi();
     }
     else if(*PState == pssRising) { // Key released
 //        Uart.Printf("\rKey Rel");
@@ -246,6 +251,7 @@ void ProcessKey(PinSnsState_t *PState, uint32_t Len) {
         Beeper.Off();
         StartReportTmr();
         chVTRestart(&App.TmrRxTimeout, MS2ST(RX_TIMEOUT_MS), EVTMSK_RX_TIMEOUT);
+        Magnet.SetLo();
     }
 }
 

@@ -10,7 +10,9 @@
 
 #include "L6470.h"
 
-#define MOTOR_SPEED     10000
+// Using default 128 microsteps value
+
+#define MOTOR_SPEED     3000
 #define MOTOR_ACC       60
 
 class Motor_t : private L6470_t {
@@ -20,9 +22,10 @@ public:
         L6470_t::Init();
         SetAcceleration(MOTOR_ACC);
         SetDeceleration(MOTOR_ACC);
+        SetConfig(0x2EA8);  // Default 2E88; voltage compensation enabled
     }
     void Run() {
-        L6470_t::Run(dirForward, MOTOR_SPEED);
+        L6470_t::Run(dirReverse, MOTOR_SPEED);
         IsRunning = true;
     }
     void Stop() {

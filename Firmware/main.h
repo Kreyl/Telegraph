@@ -17,9 +17,9 @@
 #define APP_NAME        "Telegraph"
 #define APP_VERSION     "2015-07-22_20:28"
 
-#define USB_ENABLED TRUE
+#define USB_ENABLED FALSE
 
-// Pins
+// ==== Pins ====
 #define ECHO_GPIO   GPIOC
 #define ECHO_PIN    12
 #define ECHO_ON()   PinIsSet(ECHO_GPIO, ECHO_PIN)

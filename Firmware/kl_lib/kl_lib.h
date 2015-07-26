@@ -392,7 +392,7 @@ static inline void PinSetupAlterFunc(
 }
 #endif
 
-#if 1 // ===================== Output pin ========================
+#if 1 // ===================== Pin classes ========================
 // ==== On/Off output pin ====
 class PinOutputPushPull_t {
 public:
@@ -403,6 +403,12 @@ public:
     void SetHi() { PinSet(PGpio, Pin); }
     void SetLo() { PinClear(PGpio, Pin); }
     PinOutputPushPull_t(GPIO_TypeDef *APGpio, uint16_t APin) : PGpio(APGpio), Pin(APin) {}
+};
+
+class PinInput_t {
+    GPIO_TypeDef *PGpio;
+    uint16_t Pin;
+    //void Init() const { PinSetupIn(PGpio, Pin, omPushPull); }
 };
 
 // ==== PWM output ====
