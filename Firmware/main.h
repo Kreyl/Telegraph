@@ -15,9 +15,7 @@
 #include "evt_mask.h"
 
 #define APP_NAME        "Telegraph"
-#define APP_VERSION     "2015-07-22_20:28"
-
-#define USB_ENABLED FALSE
+#define APP_VERSION     "2015-07-26_1024"
 
 // ==== Pins ====
 #define ECHO_GPIO   GPIOC
@@ -26,65 +24,20 @@
 
 void TmrGeneralCallback(void *p);
 
-// ==== RX ====
-#define RX_MIN_DURTN_MS         27
-#define RX_REPORT_PERIOD_MS     360
+// ==== Timings ====
 #define RX_TIMEOUT_MS           999
-
-#if 1 // === Rx Buf ====
-struct DotSpace_t {
-    uint32_t Dot, Space;
-};
-
-template <uint32_t Sz>
-class RxBuf_t {
-private:
-    uint32_t ITime;
-    DotSpace_t DS;
-    CircBuf_t<DotSpace_t, Sz> DotBuf;
-public:
-    void OnShort() {
-        uint32_t Duration = chTimeNow() - ITime;
-        if(Duration > RX_MIN_DURTN_MS) {
-            ITime = chTimeNow();
-            DS.Space = Duration;
-        }
-    }
-    void OnRelease() {
-        uint32_t Duration = chTimeNow() - ITime;
-//        Uart.Printf("\rt=%u; it=%u; d=%u", chTimeNow(), ITime, Duration);
-        if(Duration > RX_MIN_DURTN_MS) {
-            ITime = chTimeNow();
-            DS.Dot = Duration;
-            DotBuf.Put(&DS);
-        }
-    }
-    uint8_t Get(DotSpace_t *p) { return DotBuf.Get(p); }
-    void    Put(DotSpace_t *p) {        DotBuf.Put(p); }
-};
-#endif
-
-struct Settings_t {
-    int32_t BeepInt=0;
-    int32_t ConnectBeep=0;
-    int32_t RxBeep=0;
-    int32_t TxBeep=0;
-    int32_t TxLine=0;
-
-};
-extern Settings_t Settings;
 
 class App_t {
 private:
 
 public:
-    void OnUsbCmd();
-    VirtualTimer TmrRxReport, TmrRxTimeout;
-    RxBuf_t<2007> LineRx1;
-    RxBuf_t<207> KeyRx;
-    CircBuf_t<DotSpace_t, 2007> UsbRx;
+    VirtualTimer TmrRxTimeout;
+    // Printing
+    void OnPress();
+    void OnDepress();
+    bool WasSelfPrinting = false;
     // Eternal
-    Thread *PThread, *PTxThread;
+    Thread *PThread;
     void InitThread() { PThread = chThdSelf(); }
     void SignalEvt(eventmask_t Evt) {
         chSysLock();
@@ -97,12 +50,5 @@ public:
     void ITask();
 };
 extern App_t App;
-
-//class Tx_t {
-//private:
-//
-//public:
-//
-//};
 
 #endif /* MAIN_H_ */

@@ -25,7 +25,7 @@ private:
 public:
     void Init();
     void Shutdown() { for(uint32_t i=0; i<PIN_SNS_CNT; i++) PinSns[i].Off(); }
-    // Inner use
+public: // Inner use
     void ITask();
 };
 

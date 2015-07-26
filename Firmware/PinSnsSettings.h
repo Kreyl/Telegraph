@@ -51,9 +51,8 @@ extern void ProcessButtons(PinSnsState_t *PState, uint32_t Len);
 #endif
 
 // PinSns Handlers. Add handler for every group.
-extern void ProcessKey(PinSnsState_t *PState, uint32_t Len);
+extern void ProcessKey (PinSnsState_t *PState, uint32_t Len);
 extern void ProcessLine(PinSnsState_t *PState, uint32_t Len);
-extern void ProcessUsbSns(PinSnsState_t *PState, uint32_t Len);
 
 // List of pins utilized as sensors. Add pins here.
 const PinSns_t PinSns[] = {
@@ -62,8 +61,6 @@ const PinSns_t PinSns[] = {
 #endif
         {GPIOA, 4, pudPullUp, ProcessKey},      // Key
         {GPIOA, 0, pudNone,   ProcessLine},     // }
-        {GPIOA, 1, pudNone,   ProcessLine},     // } Lines
-        {GPIOA, 9, pudPullDown, ProcessUsbSns}, // USB sns
 };
 
 // Number of pins used, do not change

@@ -405,10 +405,14 @@ public:
     PinOutputPushPull_t(GPIO_TypeDef *APGpio, uint16_t APin) : PGpio(APGpio), Pin(APin) {}
 };
 
+template <PinPullUpDown_t PullUpDown>
 class PinInput_t {
+public:
     GPIO_TypeDef *PGpio;
     uint16_t Pin;
-    //void Init() const { PinSetupIn(PGpio, Pin, omPushPull); }
+    void Init() const { PinSetupIn(PGpio, Pin, PullUpDown); }
+    bool IsHi() const { return PinIsSet(PGpio, Pin); }
+    PinInput_t(GPIO_TypeDef *APGpio, uint16_t APin) : PGpio(APGpio), Pin(APin) {}
 };
 
 // ==== PWM output ====
