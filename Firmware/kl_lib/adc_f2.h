@@ -13,14 +13,14 @@
 
 // =============================== Constants ===================================
 // ADC sampling_times
-#define ADC_SampleTime_1_5Cycles                     ((uint32_t)0x00000000)
-#define ADC_SampleTime_7_5Cycles                     ((uint32_t)0x00000001)
-#define ADC_SampleTime_13_5Cycles                    ((uint32_t)0x00000002)
-#define ADC_SampleTime_28_5Cycles                    ((uint32_t)0x00000003)
-#define ADC_SampleTime_41_5Cycles                    ((uint32_t)0x00000004)
-#define ADC_SampleTime_55_5Cycles                    ((uint32_t)0x00000005)
-#define ADC_SampleTime_71_5Cycles                    ((uint32_t)0x00000006)
-#define ADC_SampleTime_239_5Cycles                   ((uint32_t)0x00000007)
+#define ADC_SampleTime_1_5Cycles    ((uint32_t)0x00000000)
+#define ADC_SampleTime_7_5Cycles    ((uint32_t)0x00000001)
+#define ADC_SampleTime_13_5Cycles   ((uint32_t)0x00000002)
+#define ADC_SampleTime_28_5Cycles   ((uint32_t)0x00000003)
+#define ADC_SampleTime_41_5Cycles   ((uint32_t)0x00000004)
+#define ADC_SampleTime_55_5Cycles   ((uint32_t)0x00000005)
+#define ADC_SampleTime_71_5Cycles   ((uint32_t)0x00000006)
+#define ADC_SampleTime_239_5Cycles  ((uint32_t)0x00000007)
 
 // DMA
 #define ADC_DMA             STM32_DMA2_STREAM4
@@ -40,25 +40,27 @@ struct AdcChnl_t {
 };
 
 // ADC channels config: config it.
+#define ADC_CH_BATTERY  8
 const AdcChnl_t AdcChannels[] = {
-        {10, ADC_SampleTime_55_5Cycles, 1},
-        {10, ADC_SampleTime_55_5Cycles, 2},
-        {10, ADC_SampleTime_55_5Cycles, 3},
-        {10, ADC_SampleTime_55_5Cycles, 4},
-        {10, ADC_SampleTime_55_5Cycles, 5},
-        {10, ADC_SampleTime_55_5Cycles, 6},
-        {10, ADC_SampleTime_55_5Cycles, 7},
-        {10, ADC_SampleTime_55_5Cycles, 8},
-        {10, ADC_SampleTime_55_5Cycles, 9},
-        {10, ADC_SampleTime_55_5Cycles, 10},
-        {10, ADC_SampleTime_55_5Cycles, 11},
-        {10, ADC_SampleTime_55_5Cycles, 12},
-        {10, ADC_SampleTime_55_5Cycles, 13},
-        {10, ADC_SampleTime_55_5Cycles, 14},
-        {10, ADC_SampleTime_55_5Cycles, 15},
-        {10, ADC_SampleTime_55_5Cycles, 16},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 1},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 2},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 3},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 4},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 5},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 6},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 7},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 8},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 9},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 10},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 11},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 12},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 13},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 14},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 15},
+        {ADC_CH_BATTERY, ADC_SampleTime_55_5Cycles, 16},
 };
 
+// Do not touch
 #define ADC_CHANNEL_CNT     countof(AdcChannels)
 #define ADC_BUF_SZ          ADC_CHANNEL_CNT
 
@@ -82,10 +84,10 @@ private:
     inline uint16_t IResult() { return ADC1->DR; }
 public:
     uint16_t Result[ADC_BUF_SZ];
+    uint16_t Average();
     void Init();
-    void Measure();
+    void Measure(Thread *PThread, eventmask_t Evt);
     void Disable();
-    void ClockOff() { rccDisableADC1(FALSE); }
 };
 
 #endif /* KL_ADC_H_ */

@@ -17,25 +17,28 @@
 #define APP_NAME        "Telegraph"
 #define APP_VERSION     "2015-07-26_1024"
 
-// ==== Pins ====
-#define ECHO_GPIO   GPIOC
-#define ECHO_PIN    12
-#define ECHO_ON()   PinIsSet(ECHO_GPIO, ECHO_PIN)
-
 void TmrGeneralCallback(void *p);
 
-// ==== Timings ====
-#define RX_TIMEOUT_MS           999
+#define RX_TIMEOUT_MS       999
+#define NORMAL_BATTERY_MV   10500
+#define LOW_BATTERY_MV      9000
+#define ADC2MV(Uadc)        ((Uadc * 3544) / 1000)
 
 class App_t {
 private:
-
+    bool BatteryWasDischarged = false;
+    bool WasSelfPrinting = false;
+    bool IsTransmitting = false;
 public:
     VirtualTimer TmrRxTimeout;
     // Printing
-    void OnPress();
-    void OnDepress();
-    bool WasSelfPrinting = false;
+    void PrintDot();
+    void PrintSpace();
+    // Inputs
+    void OnKeyPress();
+    void OnKeyDepress();
+    void OnLineShort();
+    void OnLineRelease();
     // Eternal
     Thread *PThread;
     void InitThread() { PThread = chThdSelf(); }

@@ -67,12 +67,20 @@ typedef void (*ftVoidVoid)(void);
 typedef void (*ftVoidPVoid)(void*p);
 typedef void (*ftVoidPVoidLen)(void*p, uint32_t Len);
 
-// Simple pseudofunctions
+// ==== Math ====
 #define MIN(a, b)   ( ((a)<(b))? (a) : (b) )
 #define MAX(a, b)   ( ((a)>(b))? (a) : (b) )
 #define ABS(a)      ( ((a) < 0)? -(a) : (a) )
 #define TRIM_VALUE(v, Max)  { if((v) > (Max)) (v) = (Max); }
 #define IS_LIKE(v, precise, deviation)  (((precise - deviation) < v) and (v < (precise + deviation)))
+
+template <typename T>
+static T Average(T *p, uint32_t Len) {
+    T Rslt = 0;
+    for(uint32_t i=0; i<Len; i++) Rslt += *p++;
+    Rslt /= Len;
+    return Rslt;
+}
 
 #define ANY_OF_2(a, b1, b2)             (((a)==(b1)) or ((a)==(b2)))
 #define ANY_OF_3(a, b1, b2, b3)         (((a)==(b1)) or ((a)==(b2)) or ((a)==(b3)))
@@ -96,7 +104,6 @@ union DWordBytes_t {
     uint32_t DWord;
     uint8_t b[4];
 };
-
 union WordBytes_t {
     uint16_t Word;
     uint8_t b[2];

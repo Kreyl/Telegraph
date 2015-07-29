@@ -15,18 +15,26 @@
 #include "Sequences.h"
 #include "motor.h"
 #include "led.h"
+#include "adc_f2.h"
 
 App_t App;
-Beeper_t Beeper;
-const PinOutput_t Line1TxPin = {GPIOB, 4, omPushPull};
+// Outputs
+const PinOutput_t PinLine1Tx = {GPIOB, 4, omPushPull};
 const PinOutput_t Magnet = {GPIOA, 10, omPushPull};
-const PinInput_t EchoPin = {GPIOC, 12, pudPullUp};
-const LedOnOff_t Led1 = {GPIOA, 2};
+// Inputs
+const PinInput_t PinEcho = {GPIOC, 12, pudPullUp};
+#define ECHO_IS_ON()    (!PinEcho.IsHi())
+const PinInput_t PinSrcPwrSns = {GPIOC, 14, pudPullDown};
+// Leds
+const LedOnOff_t LedLine = {GPIOA, 2};
 const LedOnOff_t LedSrcPwr = {GPIOC, 15};
 const LedOnOff_t LedBtPwr = {GPIOB, 1};
 const LedOnOff_t LedBtPwrLo = {GPIOB, 2};
+// Other
+Beeper_t Beeper;
 Motor_t Motor;
 PeriodicTmr_t TmrCheck = {MS2ST(702), EVTMSK_CHECK};
+Adc_t Adc;
 
 #if 1 // ============= Timers ===================
 // Universal VirtualTimer one-shot callback
@@ -58,16 +66,18 @@ int main() {
     // Report problem with clock if any
     if(ClkResult) Uart.Printf("Clock failure\r");
 
-    PinSensors.Init();
-    PinSetupIn(ECHO_GPIO, ECHO_PIN, pudPullUp); // Echo on/off
-
-    // Pins
-    Line1TxPin.Init();
-    Line1TxPin.SetLo();
+    // ==== Pins ====
+    // Inputs
+    PinEcho.Init();
+    PinSrcPwrSns.Init();
+    PinSetupAnalog(GPIOB, 0);   // ADC input, battery measurement
+    // Outputs
+    PinLine1Tx.Init();
+    PinLine1Tx.SetLo();
     Magnet.Init();
     Magnet.SetLo();
-    EchoPin.Init();
-    Led1.Init();
+    // Leds
+    LedLine.Init();
     LedSrcPwr.Init();
     LedBtPwr.Init();
     LedBtPwrLo.Init();
@@ -80,6 +90,8 @@ int main() {
     Motor.Init();
     Beeper.Init();
     Beeper.StartSequence(bsqBeepBeep);
+    PinSensors.Init();
+    Adc.Init();
 
     // ==== Main cycle ====
     App.ITask();
@@ -101,8 +113,42 @@ void App_t::ITask() {
         }
 
         if(EvtMsk & EVTMSK_CHECK) {
-            Uart.Printf("\rCheck");
-        }
+            //Uart.Printf("\rCheck");
+            if(PinSrcPwrSns.IsHi()) { // External Power
+                LedSrcPwr.On();
+                LedBtPwr.Off();
+                LedBtPwrLo.Off();
+                BatteryWasDischarged = false;
+            }
+            else { // Battery Power
+                LedSrcPwr.Off();
+                Adc.Measure(chThdSelf(), EVTMSK_ADC_DONE);  // Measure battery
+            }
+        } // EVTMSK_CHECK
+
+        if(EvtMsk & EVTMSK_ADC_DONE) {
+            uint32_t U = Adc.Average();
+            U = ADC2MV(U);  // Convert to mV
+//            Uart.Printf("\rU=%u", U);
+            // Indicate
+            if(U <= LOW_BATTERY_MV and !BatteryWasDischarged) {
+                BatteryWasDischarged = true;
+                LedBtPwr.Off();
+                LedBtPwrLo.On();
+                Uart.Printf("\rBattery Discharged");
+            }
+            else if(U >= NORMAL_BATTERY_MV) {
+                BatteryWasDischarged = false;
+                LedBtPwr.On();
+                LedBtPwrLo.Off();
+//                Uart.Printf("\rBattery Ok");
+            }
+            else if(U > LOW_BATTERY_MV and !BatteryWasDischarged) {
+                LedBtPwr.On();
+                LedBtPwrLo.Off();
+//                Uart.Printf("\rBattery Ok");
+            }
+        } // EVTMSK_ADC_DONE
     } // while true
 }
 
@@ -117,46 +163,64 @@ void App_t::OnUartCmd(Uart_t *PUart) {
 }
 
 #if 1 // ==== Pin Sns handlers ====
+void App_t::OnKeyPress() {
+//    Uart.Printf("\rKey Press");
+    Beeper.Beep(1975, BEEP_VOLUME);
+    // If echo is on, print self and do not transmit to line
+    if(ECHO_IS_ON()) {
+        WasSelfPrinting = true;
+        PrintDot();
+    }
+    else {
+        IsTransmitting = true;
+        PinLine1Tx.SetHi();
+    }
+}
+void App_t::OnKeyDepress() {
+//    Uart.Printf("\rKey Rel");
+    Beeper.Off();
+    PinLine1Tx.SetLo();
+    if(WasSelfPrinting) {
+        WasSelfPrinting = false;
+        PrintSpace();
+    }
+    IsTransmitting = false;
+}
+
+void App_t::OnLineShort() {
+//    Uart.Printf("\rLine Short");
+    LedLine.Off();
+    if(!IsTransmitting) {
+        Beeper.Beep(999, BEEP_VOLUME);
+        PrintDot();
+    }
+}
+void App_t::OnLineRelease() {
+//    Uart.Printf("\rLine R");
+    LedLine.On();
+    Beeper.Off();
+    if(!IsTransmitting) {
+        PrintSpace();
+    }
+}
+
 void ProcessKey(PinSnsState_t *PState, uint32_t Len) {
-    if(*PState == pssFalling) { // Key pressed
-//        Uart.Printf("\rKey Press");
-        Beeper.Beep(1975, BEEP_VOLUME);
-        // Print self if needed
-        if(EchoPin.IsHi()) {
-            App.WasSelfPrinting = true;
-            App.OnPress();
-        }
-    }
-    else if(*PState == pssRising) { // Key released
-//        Uart.Printf("\rKey Rel");
-        Beeper.Off();
-        if(App.WasSelfPrinting) {
-            App.WasSelfPrinting = false;
-            App.OnDepress();
-        }
-    }
+    if(*PState == pssFalling) App.OnKeyPress(); // Key pressed
+    else if(*PState == pssRising) App.OnKeyDepress(); // Key released
 }
 
 void ProcessLine(PinSnsState_t *PState, uint32_t Len) {
-    if(PState[0] == pssFalling) { // Key pressed
-//        Uart.Printf("\rLine Short");
-        Beeper.Beep(999, BEEP_VOLUME);
-        App.OnPress();
-    }
-    else if(PState[0] == pssRising) { // Key released
-//        Uart.Printf("\rLine R");
-        Beeper.Off();
-        App.OnDepress();
-    }
+    if(PState[0] == pssFalling) App.OnLineShort();
+    else if(PState[0] == pssRising) App.OnLineRelease();
 }
 #endif
 
-void App_t::OnPress() {
+void App_t::PrintDot() {
     if(Motor.IsRunning) { chVTReset(&App.TmrRxTimeout); }
     else Motor.Run();
     Magnet.SetHi();
 }
-void App_t::OnDepress() {
+void App_t::PrintSpace() {
     if(Motor.IsRunning) chVTRestart(&App.TmrRxTimeout, MS2ST(RX_TIMEOUT_MS), EVTMSK_RX_TIMEOUT);
     Magnet.SetLo();
 }

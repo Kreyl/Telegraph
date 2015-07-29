@@ -7,19 +7,20 @@
 
 #include "adc_f2.h"
 
-static Thread *PAdcThread;
+static Thread *IPThread;
+static eventmask_t IEvt;
 
 // Wrapper for IRQ
 extern "C" {
 void AdcTxIrq(void *p, uint32_t flags) {
     dmaStreamDisable(ADC_DMA);
-    // Resume thread if any
-    chSysLockFromIsr();
-    if(PAdcThread != NULL) {
-        if(PAdcThread->p_state == THD_STATE_SUSPENDED) chSchReadyI(PAdcThread);
-        PAdcThread = NULL;
+    ADC1->CR2 = 0;  // Disable ADC
+    // Signal event to thread
+    if(IPThread != nullptr) {
+        chSysLockFromIsr();
+        chEvtSignalI(IPThread, IEvt);
+        chSysUnlockFromIsr();
     }
-    chSysUnlockFromIsr();
 }
 } // extern C
 
@@ -35,7 +36,9 @@ void Adc_t::Init() {
     dmaStreamSetMode      (ADC_DMA, ADC_DMA_MODE);
 }
 
-void Adc_t::Measure() {
+void Adc_t::Measure(Thread *PThread, eventmask_t Evt) {
+    IPThread = PThread;
+    IEvt = Evt;
     // DMA
     dmaStreamSetMemory0(ADC_DMA, Result);
     dmaStreamSetTransactionSize(ADC_DMA, ADC_BUF_SZ);
@@ -44,13 +47,15 @@ void Adc_t::Measure() {
     // ADC
     ADC1->CR1 = ADC_CR1_SCAN;
     ADC1->CR2 = ADC_CR2_DMA | ADC_CR2_ADON;
-    chSysLock();
-    PAdcThread = chThdSelf();
     StartConversion();
-    chSchGoSleepS(THD_STATE_SUSPENDED);
-    chSysUnlock();
-    ADC1->CR2 = 0;
 }
+
+uint16_t Adc_t::Average() {
+    uint32_t Rslt = Result[0];
+    for(uint32_t i=1; i<ADC_BUF_SZ; i++) Rslt += Result[i];
+    return (Rslt / ADC_BUF_SZ);
+}
+
 
 void Adc_t::SetChannelCount(uint32_t Count) {
     chDbgAssert((Count > 0), "Adc Ch cnt=0", NULL);
@@ -93,4 +98,5 @@ void Adc_t::ChannelConfig(AdcChnl_t ACfg) {
 void Adc_t::Disable() {
     ADC1->CR2 = 0;
     dmaStreamRelease(ADC_DMA);
+    rccDisableADC1(FALSE);
 }
