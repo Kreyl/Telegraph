@@ -12,7 +12,7 @@
 
 // Using default 128 microsteps value
 
-#define MOTOR_SPEED     3000
+#define MOTOR_SPEED     2000
 #define MOTOR_ACC       60
 
 class Motor_t : private L6470_t {

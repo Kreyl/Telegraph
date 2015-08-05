@@ -19,7 +19,7 @@
 
 void TmrGeneralCallback(void *p);
 
-#define RX_TIMEOUT_MS       999
+#define RX_TIMEOUT_MS       5004
 #define NORMAL_BATTERY_MV   10500
 #define LOW_BATTERY_MV      9000
 #define ADC2MV(Uadc)        ((Uadc * 3544) / 1000)
